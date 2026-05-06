@@ -2,456 +2,874 @@
 //  GameScene.swift
 //  challenge2test
 //
-//  Created by Edward Geraldo Kristian on 30/04/26.
-//
 
 import SpriteKit
-import GameplayKit
+
+// MARK: - Physics
+private enum Mask {
+    static let ball:  UInt32 = 1
+    static let block: UInt32 = 2
+    static let wall:  UInt32 = 4
+    static let ammo:  UInt32 = 16
+}
+
+// MARK: - Block type
+private enum BlockType {
+    case normal                      // plain square — always available
+    case triangle(flipped: Bool)     // triangle — unlocks turn 5
+    case bomb                        // explosion on death — unlocks turn 10
+}
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
-    struct PhysicsCategory {
-        static let none: UInt32 = 0
-        static let ball: UInt32 = 0b1       // 1
-        static let block: UInt32 = 0b10     // 2
-        static let border: UInt32 = 0b100   // 4
-        static let ground: UInt32 = 0b1000  // 8
-        static let ammo: UInt32 = 0b10000   // 16
-    }
-    
-    // --- Variables ---
-    var totalBalls = 3
-    let columns = 7
-    let rows = 9
-    var isBallInPlay = false
-    var playerBall: SKSpriteNode!
-    var aimingLine: SKShapeNode?
-    var ballStartPos: CGPoint!
-    var isAiming = false
-    
+
+    // ── Grid ──────────────────────────────────
+    private let cols      = 7
+    private let blockRows = 9
+    private let cell:  CGFloat = 44
+    private let gap:   CGFloat = 5
+    private var step:  CGFloat { cell + gap }
+
+    // ── Ball ──────────────────────────────────
+    private let ballR:     CGFloat      = 9
+    private let ballSpeed: CGFloat      = 580
+    private let shootGap:  TimeInterval = 0.13
+
+    // ── State ─────────────────────────────────
+    private var ballCount  = 3
+    private var turnNumber = 0       // used for progressive unlocks + HP scaling
+    private var flying     = false
+    private var aiming     = false
+
+    private var volleyTotal:  Int      = 0
+    private var volleyLanded: Int      = 0
+    private var firstLandX:   CGFloat? = nil
+    private var shotAngle:    CGFloat  = .pi / 2
+    private var ballsRisen:   Set<ObjectIdentifier> = []
+
+    private var stuckTick:  TimeInterval = 0
+    private let stuckLimit: TimeInterval = 2.5
+
+    // ── Geometry ──────────────────────────────
+    private var gridOrigin = CGPoint.zero
+    private var gridW: CGFloat = 0
+    private var gridH: CGFloat = 0
+    private var shootY: CGFloat = 0
+    private var shootX: CGFloat = 0
+
+    // ── Nodes ─────────────────────────────────
+    private var shooterBall: SKSpriteNode!
+    private var aimLine:     SKShapeNode?
+    private var countLabel:  SKLabelNode!
+    private var nextMarker:  SKShapeNode?
+    private var turnLabel:   SKLabelNode!
+
+    // ─────────────────────────────────────────
+    // MARK: didMove
+    // ─────────────────────────────────────────
     override func didMove(to view: SKView) {
-        // 1. The Zen Stage
-        self.backgroundColor = UIColor(red: 0.95, green: 0.96, blue: 0.93, alpha: 1.0)
-        self.physicsWorld.gravity = CGVector(dx: 0, dy: 0) // No falling anxiety
-        self.physicsWorld.contactDelegate = self
-        
-        ballStartPos = CGPoint(x: self.frame.midX, y: self.frame.minY + 150)
-        
-        // --- 1. Create the Bouncy Walls (Left, Top, Right) ---
-        let wallPath = CGMutablePath()
-        wallPath.move(to: CGPoint(x: self.frame.minX, y: self.frame.minY))
-        wallPath.addLine(to: CGPoint(x: self.frame.minX, y: self.frame.maxY))
-        wallPath.addLine(to: CGPoint(x: self.frame.maxX, y: self.frame.maxY))
-        wallPath.addLine(to: CGPoint(x: self.frame.maxX, y: self.frame.minY))
-        
-        let wallsNode = SKNode()
-        wallsNode.physicsBody = SKPhysicsBody(edgeChainFrom: wallPath)
-        wallsNode.physicsBody?.friction = 0.0
-        wallsNode.physicsBody?.restitution = 1.0
-        wallsNode.physicsBody?.categoryBitMask = PhysicsCategory.border
-        self.addChild(wallsNode)
-        
-        // --- 2. Create the Ground Sensor ---
-        let groundY = ballStartPos.y - 15 // Placed slightly below the ball
-        let groundNode = SKNode()
-        groundNode.physicsBody = SKPhysicsBody(edgeFrom: CGPoint(x: self.frame.minX, y: groundY),
-                                               to: CGPoint(x: self.frame.maxX, y: groundY))
-        groundNode.physicsBody?.friction = 0.0
-        groundNode.physicsBody?.restitution = 0.0 // No bounce on the ground
-        groundNode.physicsBody?.categoryBitMask = PhysicsCategory.ground
-        self.addChild(groundNode)
-        
-        // 3. Spawn the initial ball
-        spawnPlayerBall()
-        
-        // 4. Spawn the first row of blocks
-        setupInitialBoard()
-        
-        // 5. Setup the Drag Gesture (The Aiming Mechanic)
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        view.addGestureRecognizer(panGesture)
+        backgroundColor = UIColor(red: 0.09, green: 0.11, blue: 0.16, alpha: 1)
+        physicsWorld.gravity = .zero
+        physicsWorld.contactDelegate = self
+        physicsWorld.speed = 1.0
+
+        computeLayout(in: view)
+        buildBackground()
+        buildWalls()
+        buildHUD()
+        placeShooterBall()
+        spawnInitialRows()
+        addPanGesture(to: view)
     }
-    
-    func setupInitialBoard() {
-        let blockWidth = (self.frame.width - (10 * 8)) / 7 // 7 columns, 8 spaces
-        let rowHeight = blockWidth + 10 // Height + spacing
-        
-        // Top of the screen, moving downwards
-        let topY = self.frame.maxY - 100
-        
-        // Row 1 is clear (index 0). We spawn rows 2, 3, and 4 (indexes 1, 2, 3).
-        for row in 1...3 {
-            let currentY = topY - (CGFloat(row) * rowHeight)
-            spawnRow(atYPosition: currentY)
+
+    // ─────────────────────────────────────────
+    // MARK: Layout
+    // ─────────────────────────────────────────
+    private func computeLayout(in view: SKView) {
+        let totalRows = blockRows + 1
+        gridW = step * CGFloat(cols)      + gap
+        gridH = step * CGFloat(totalRows) + gap
+
+        let st = view.safeAreaInsets.top    > 0 ? view.safeAreaInsets.top    : 50
+        let sb = view.safeAreaInsets.bottom > 0 ? view.safeAreaInsets.bottom : 34
+
+        gridOrigin = CGPoint(x: frame.midX - gridW / 2,
+                             y: frame.maxY - st - 16 - gridH)
+        shootY = cellCenter(col: 0, row: blockRows).y
+        shootX = frame.midX
+        _ = sb
+    }
+
+    private func cellCenter(col: Int, row: Int) -> CGPoint {
+        CGPoint(
+            x: gridOrigin.x + gap + cell / 2 + CGFloat(col) * step,
+            y: gridOrigin.y + gridH - gap - cell / 2 - CGFloat(row) * step
+        )
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Background
+    // ─────────────────────────────────────────
+    private func buildBackground() {
+        // Outer panel
+        let panel = SKShapeNode(
+            rect: CGRect(x: gridOrigin.x, y: gridOrigin.y,
+                         width: gridW, height: gridH), cornerRadius: 14)
+        panel.fillColor   = UIColor(white: 1, alpha: 0.03)
+        panel.strokeColor = UIColor(white: 1, alpha: 0.10)
+        panel.lineWidth   = 1.5; panel.zPosition = 0; panel.name = "ui"
+        addChild(panel)
+
+        // Ghost cells — block zone
+        for r in 0..<blockRows {
+            for c in 0..<cols { ghostCell(col: c, row: r, shooter: false) }
+        }
+        // Shooter row — blue tint
+        for c in 0..<cols { ghostCell(col: c, row: blockRows, shooter: true) }
+
+        // Divider
+        let divY = shootY + cell / 2 + gap / 2
+        let div  = SKShapeNode(); let dp = CGMutablePath()
+        dp.move(to:    CGPoint(x: gridOrigin.x + 10,         y: divY))
+        dp.addLine(to: CGPoint(x: gridOrigin.x + gridW - 10, y: divY))
+        div.path        = dp
+        div.strokeColor = UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.25)
+        div.lineWidth   = 1; div.name = "ui"
+        addChild(div)
+    }
+
+    private func ghostCell(col: Int, row: Int, shooter: Bool) {
+        let g = SKShapeNode(
+            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
+            cornerRadius: 6)
+        g.position    = cellCenter(col: col, row: row)
+        g.fillColor   = shooter
+            ? UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.04)
+            : UIColor(white: 1, alpha: 0.02)
+        g.strokeColor = shooter
+            ? UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.15)
+            : UIColor(white: 1, alpha: 0.05)
+        g.lineWidth = 0.5; g.zPosition = 1; g.name = "ui"
+        addChild(g)
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Walls — left + right + top only
+    // ─────────────────────────────────────────
+    private func buildWalls() {
+        let l = gridOrigin.x, r = gridOrigin.x + gridW
+        let b = gridOrigin.y, t = gridOrigin.y + gridH
+
+        for (a, bPt) in [
+            (CGPoint(x:l,y:b), CGPoint(x:l,y:t)),
+            (CGPoint(x:r,y:b), CGPoint(x:r,y:t)),
+            (CGPoint(x:l,y:t), CGPoint(x:r,y:t))
+        ] {
+            let n = SKNode()
+            n.physicsBody = SKPhysicsBody(edgeFrom: a, to: bPt)
+            n.physicsBody?.friction         = 0
+            n.physicsBody?.restitution      = 1
+            n.physicsBody?.categoryBitMask  = Mask.wall
+            n.physicsBody?.collisionBitMask = Mask.ball
+            n.name = "wall"; addChild(n)
         }
     }
-    
-    // --- Helper Methods ---
-    
-    func spawnPlayerBall() {
-        // Create a soft, rounded ball (We use a built-in shape for the draft)
-        playerBall = SKSpriteNode(color: UIColor(red: 0.6, green: 0.7, blue: 0.8, alpha: 1.0), size: CGSize(width: 20, height: 20))
-        
-        // Make it perfectly round (if it were an image, it would be a circle)
-        // For the draft, a rounded square works, but let's give it circle physics
-        playerBall.position = ballStartPos
-        
-        let body = SKPhysicsBody(circleOfRadius: 10)
-        body.friction = 0
-        body.linearDamping = 0     // No air resistance slowing it down
-        body.restitution = 1.0     // Perfect bounce
-        body.allowsRotation = false
-        
-        // 1. Who am I?
-        body.categoryBitMask = PhysicsCategory.ball
-        // 2. Who do I bounce off of?
-        body.collisionBitMask = PhysicsCategory.border | PhysicsCategory.block
-        // 3. Who should I notify you about when I touch them?
-        body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.ground
-        
-        playerBall.physicsBody = body
-        self.addChild(playerBall)
+
+    // ─────────────────────────────────────────
+    // MARK: HUD
+    // ─────────────────────────────────────────
+    private func buildHUD() {
+        // Ball icon
+        let iconX = gridOrigin.x + gap + ballR + 2
+        let icon  = SKShapeNode(circleOfRadius: ballR)
+        icon.fillColor   = ballFill
+        icon.strokeColor = .clear
+        icon.position    = CGPoint(x: iconX, y: shootY)
+        icon.zPosition   = 10; icon.name = "ui"
+        addChild(icon)
+
+        // Count label
+        countLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        countLabel.fontSize                = 16
+        countLabel.fontColor               = UIColor(white: 0.9, alpha: 1)
+        countLabel.text                    = "×\(ballCount)"
+        countLabel.horizontalAlignmentMode = .left
+        countLabel.verticalAlignmentMode   = .center
+        countLabel.position  = CGPoint(x: iconX + ballR + 6, y: shootY)
+        countLabel.zPosition = 10
+        addChild(countLabel)
+
+        // Turn label (top-right of grid)
+        turnLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        turnLabel.fontSize                = 13
+        turnLabel.fontColor               = UIColor(white: 0.5, alpha: 1)
+        turnLabel.text                    = "TURN 1"
+        turnLabel.horizontalAlignmentMode = .right
+        turnLabel.verticalAlignmentMode   = .center
+        turnLabel.position  = CGPoint(x: gridOrigin.x + gridW - 6,
+                                      y: shootY)
+        turnLabel.zPosition = 10
+        addChild(turnLabel)
     }
-    
-    // --- The Core Mechanic: Aiming and Shooting ---
-    
-    @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
-        // We only want to aim if the ball is resting at the start position
-        // (You can change this later if you want rapid-fire)
-        guard !isBallInPlay else { return }
-        
-        let translation = gesture.translation(in: self.view)
-        
-        // We use "Sling-shot" logic: Dragging DOWN aims UP.
-        // We flip the Y translation because screen coordinates (UIKit)
-        // are opposite to game coordinates (SpriteKit) on the Y axis.
-        let dx = -translation.x
-        let dy = translation.y
-        
-        // Calculate the angle using trigonometry
-        let angle = atan2(dy, dx)
-        
-        switch gesture.state {
-        case .began:
-            isAiming = true
-            drawAimingLine(angle: angle)
-        case .changed:
-            if isAiming {
-                updateAimingLine(angle: angle)
+
+    private var ballFill: UIColor {
+        UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1)
+    }
+
+    private func refreshHUD() {
+        countLabel.text = "×\(ballCount)"
+        countLabel.run(.sequence([.scale(to: 1.5, duration: 0.07),
+                                  .scale(to: 1.0, duration: 0.10)]))
+        turnLabel.text = "TURN \(turnNumber + 1)"
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Shooter ball  — circle shape
+    // ─────────────────────────────────────────
+    private func placeShooterBall() {
+        shooterBall?.removeFromParent()
+        shooterBall          = makeBallNode()
+        shooterBall.position = CGPoint(x: shootX, y: shootY)
+        addChild(shooterBall)
+    }
+
+    private func makeBallNode() -> SKSpriteNode {
+        // Draw a crisp circle using a CGPath mask
+        let diameter = Int(ballR * 2)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: diameter, height: diameter))
+        let img = renderer.image { ctx in
+            UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1).setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0,
+                                                  width: diameter, height: diameter))
+            // Specular highlight
+            UIColor(white: 1, alpha: 0.45).setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: diameter/4, y: diameter/4,
+                                                  width: diameter/3, height: diameter/3))
+        }
+        let b = SKSpriteNode(texture: SKTexture(image: img),
+                             size: CGSize(width: ballR*2, height: ballR*2))
+        b.name      = "ball"
+        b.zPosition = 7
+
+        let body = SKPhysicsBody(circleOfRadius: ballR)
+        body.friction           = 0
+        body.linearDamping      = 0
+        body.restitution        = 1
+        body.allowsRotation     = false
+        body.isDynamic          = true
+        body.categoryBitMask    = Mask.ball
+        body.collisionBitMask   = Mask.wall | Mask.block
+        body.contactTestBitMask = Mask.block | Mask.ammo
+        b.physicsBody = body
+        return b
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Spawn board
+    // ─────────────────────────────────────────
+    private func spawnInitialRows() {
+        for r in 0...2 { spawnRow(r) }
+    }
+
+    private func spawnRow(_ row: Int) {
+        guard row < blockRows else { return }
+
+        let shuffled = Array(0..<cols).shuffled()
+        let nBlocks  = Int.random(in: 2...4)
+        let bCols    = Set(shuffled.prefix(nBlocks))
+        let eCols    = shuffled.filter { !bCols.contains($0) }
+
+        // Ammo appears roughly 1 per row, less frequently as game progresses
+        let ammoChance = max(25, 55 - turnNumber * 2)  // 55% → 25% over time
+        let ammoCol: Int? = Int.random(in: 0...99) < ammoChance ? eCols.randomElement() : nil
+
+        for c in 0..<cols {
+            let pos = cellCenter(col: c, row: row)
+            if bCols.contains(c) {
+                addBlock(at: pos, type: randomBlockType())
+            } else if c == ammoCol {
+                addAmmo(at: pos)
             }
-        case .ended, .cancelled:
-            if isAiming {
-                isAiming = false
-                removeAimingLine()
-                launchBall(angle: angle)
-                // LOCK THE GAME: The ball is now flying
-                isBallInPlay = true
-            }
-        default:
-            break
         }
     }
-    
-    // --- Visual Feedback (The "Mental Device") ---
-    
-    func drawAimingLine(angle: CGFloat) {
-        aimingLine = SKShapeNode()
-        
-        // Use a soft, semi-transparent color for the Zen aesthetic
-        aimingLine?.strokeColor = UIColor.lightGray.withAlphaComponent(0.8)
-        
-        // We make it slightly thicker so it feels soft, not sharp
-        aimingLine?.lineWidth = 4.0
-        
-        // Add it to the scene
-        self.addChild(aimingLine!)
-        
-        // Draw the initial path
-        updateAimingLine(angle: angle)
+
+    // Progressive block type unlock
+    private func randomBlockType() -> BlockType {
+        let hasBomb     = turnNumber >= 10
+        let hasTriangle = turnNumber >= 5
+
+        let roll = Int.random(in: 0...99)
+        if hasBomb && roll < 12 {
+            return .bomb
+        } else if hasTriangle && roll < 30 {
+            return .triangle(flipped: Bool.random())
+        }
+        return .normal
     }
-    
-    func updateAimingLine(angle: CGFloat) {
-        guard let line = aimingLine else { return }
-        
+
+    // ─────────────────────────────────────────
+    // MARK: Block builders
+    // ─────────────────────────────────────────
+    private func addBlock(at pos: CGPoint, type: BlockType) {
+        let hp   = blockHP()
+        let node = SKNode()
+        node.position  = pos
+        node.name      = "block"
+        node.zPosition = 3
+
+        switch type {
+        case .normal:
+            buildNormalBlock(node: node, hp: hp)
+        case .triangle(let flipped):
+            buildTriangleBlock(node: node, hp: hp, flipped: flipped)
+        case .bomb:
+            buildBombBlock(node: node, hp: hp)
+        }
+
+        node.alpha = 0; node.setScale(0.2)
+        addChild(node)
+        node.run(.group([.fadeIn(withDuration: 0.35),
+                         .scale(to: 1.0, duration: 0.35)]))
+    }
+
+    private func buildNormalBlock(node: SKNode, hp: Int) {
+        let sprite = SKSpriteNode(color: blockFill(hp: hp),
+                                  size: CGSize(width: cell, height: cell))
+        sprite.name = "blockSprite"
+
+        // Rounded corners via overlay shape
+        let corner = SKShapeNode(
+            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
+            cornerRadius: 7)
+        corner.fillColor   = .clear
+        corner.strokeColor = UIColor(white: 1, alpha: 0.12)
+        corner.lineWidth   = 1; corner.zPosition = 1
+
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: cell, height: cell))
+        body.isDynamic = false; body.friction = 0; body.restitution = 1
+        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        node.addChild(sprite)
+        node.addChild(corner)
+        node.addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
+    }
+
+    private func buildTriangleBlock(node: SKNode, hp: Int, flipped: Bool) {
+        // Visual triangle
         let path = CGMutablePath()
-        // 1. Get the EXACT current position of the ball
-        let currentPos = playerBall.position
-        
-        // 2. Draw the line starting from the ball
-        path.move(to: currentPos)
-        
-        let length: CGFloat = 1000
-        let endX = currentPos.x + (cos(angle) * length)
-        let endY = currentPos.y + (sin(angle) * length)
-        
-        path.addLine(to: CGPoint(x: endX, y: endY))
-        
-        let pattern: [CGFloat] = [15.0, 15.0]
-        let dashedPath = path.copy(dashingWithPhase: 0, lengths: pattern)
-        line.path = dashedPath
-    }
-    
-    func removeAimingLine() {
-        aimingLine?.removeFromParent()
-        aimingLine = nil
-    }
-    
-    // --- The Physics Action ---
-    
-    func launchBall(angle: CGFloat) {
-        let speed: CGFloat = 800 // The constant speed of the ball
-        
-        // Apply velocity based on the angle
-        let velocityX = cos(angle) * speed
-        let velocityY = sin(angle) * speed
-        
-        playerBall.physicsBody?.velocity = CGVector(dx: velocityX, dy: velocityY)
-        
-        // Optional: Spawn a new ball immediately at the start position
-        // so the player can shoot again while the first is bouncing
-        // spawnPlayerBall()
-    }
-    
-    func spawnRow(atYPosition yPos: CGFloat) {
-        let spacing: CGFloat = 10
-        // Calculate width to perfectly fit 7 columns across the screen
-        let availableWidth = self.frame.width - (spacing * CGFloat(columns + 1))
-        let blockWidth = availableWidth / CGFloat(columns)
-        let blockHeight: CGFloat = blockWidth // Keep them square
-        
-        // Create an array of column indexes [0, 1, 2, 3, 4, 5, 6] and shuffle them
-        var availableColumns = Array(0..<columns)
-        availableColumns.shuffle()
-        
-        // Pick 2 to 4 columns to be Blocks
-        let numBlocks = Int.random(in: 2...4)
-        let blockColumns = Array(availableColumns.prefix(numBlocks))
-        
-        // The remaining columns are empty gaps. We will pick one to spawn Ammo.
-        let emptyColumns = Array(availableColumns.suffix(columns - numBlocks))
-        let ammoColumn = emptyColumns.randomElement()
-        
-        // Calculate starting X so the row is perfectly centered
-        let startX = self.frame.minX + spacing + (blockWidth / 2)
-        
-        for col in 0..<columns {
-            let xPos = startX + CGFloat(col) * (blockWidth + spacing)
-            let spawnPos = CGPoint(x: xPos, y: yPos)
-            
-            if blockColumns.contains(col) {
-                // --- SPAWN BLOCK ---
-                let block = SKSpriteNode(color: UIColor(red: 0.8, green: 0.85, blue: 0.8, alpha: 1.0), size: CGSize(width: blockWidth, height: blockHeight))
-                block.position = spawnPos
-                
-                let body = SKPhysicsBody(rectangleOf: block.size)
-                body.isDynamic = false
-                body.categoryBitMask = PhysicsCategory.block
-                block.physicsBody = body
-                
-                let hp = calculateBlockHP()
-                
-                let numberLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-                numberLabel.name = "blockNumber"
-                numberLabel.text = "\(hp)"
-                numberLabel.fontSize = blockWidth * 0.4
-                numberLabel.fontColor = .darkGray
-                numberLabel.verticalAlignmentMode = .center
-                
-                block.addChild(numberLabel)
-                
-                // Soft spawn animation
-                block.alpha = 0
-                block.setScale(0.1)
-                self.addChild(block)
-                block.run(SKAction.group([SKAction.fadeIn(withDuration: 0.6), SKAction.scale(to: 1.0, duration: 0.6)]))
-                
-            } else if col == ammoColumn {
-                // --- SPAWN AMMO IN A GAP ---
-                // Create a small visual indicator for the extra ball
-                let ammoNode = SKSpriteNode(color: UIColor(red: 0.6, green: 0.7, blue: 0.8, alpha: 1.0), size: CGSize(width: 15, height: 15))
-                ammoNode.position = spawnPos
-                ammoNode.name = "ammoDrop"
-                
-                // Circular physics body to detect ball collision
-                let ammoBody = SKPhysicsBody(circleOfRadius: 7.5)
-                ammoBody.isDynamic = false
-                ammoBody.categoryBitMask = PhysicsCategory.ammo
-                ammoNode.physicsBody = ammoBody
-                
-                // Gentle floating animation to make it look collectible
-                let hoverUp = SKAction.moveBy(x: 0, y: 5, duration: 0.8)
-                let hoverDown = SKAction.moveBy(x: 0, y: -5, duration: 0.8)
-                hoverUp.timingMode = .easeInEaseOut
-                hoverDown.timingMode = .easeInEaseOut
-                ammoNode.run(SKAction.repeatForever(SKAction.sequence([hoverUp, hoverDown])))
-                
-                self.addChild(ammoNode)
-            }
+        let h    = cell
+        if flipped {
+            // ◿ — right-angle at bottom-left, angled face top-right
+            path.move(to:    CGPoint(x: -h/2,  y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2,  y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2,  y:  h/2))
+        } else {
+            // ◺ — right-angle at bottom-right, angled face top-left
+            path.move(to:    CGPoint(x: -h/2,  y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2,  y: -h/2))
+            path.addLine(to: CGPoint(x: -h/2,  y:  h/2))
         }
+        path.closeSubpath()
+
+        let shape = SKShapeNode(path: path)
+        shape.fillColor   = UIColor(red: 0.85, green: 0.62, blue: 0.20, alpha: 1)
+        shape.strokeColor = UIColor(white: 1, alpha: 0.18)
+        shape.lineWidth   = 1; shape.name = "blockSprite"
+
+        // Triangle physics — angled face makes ball deflect differently
+        var points: [CGPoint] = flipped
+            ? [CGPoint(x:-h/2,y:-h/2), CGPoint(x:h/2,y:-h/2), CGPoint(x:h/2,y:h/2)]
+            : [CGPoint(x:-h/2,y:-h/2), CGPoint(x:h/2,y:-h/2), CGPoint(x:-h/2,y:h/2)]
+        let body = SKPhysicsBody(polygonFrom: CGPath.polygon(points: points))
+        body.isDynamic = false; body.friction = 0; body.restitution = 1
+        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        node.addChild(shape)
+        node.addChild(hpLabel(hp: hp, fontSize: cell * 0.30))
     }
-    
-    func spawnBlockRow() {
-        let blockWidth: CGFloat = 60
-        let blockHeight: CGFloat = 60
-        let spacing: CGFloat = 10
-        
-        let totalWidth = self.frame.width
-        let columns = Int(totalWidth / (blockWidth + spacing))
-        
-        let startX = self.frame.minX + (totalWidth - CGFloat(columns) * (blockWidth + spacing)) / 2 + (blockWidth / 2)
-        let startY = self.frame.maxY - 100
-        
-        // Safeguard: Track if we spawned at least one block this row
-        var spawnedAtLeastOne = false
-        
-        for i in 0..<columns {
-            
-            // Zen Design: Give a 40% chance to SKIP this block to create a gap
-            let shouldSkip = Int.random(in: 1...100) <= 40
-            
-            // If the randomizer says skip, AND we aren't on the very last column
-            // with an empty row, we skip to the next loop.
-            if shouldSkip && !(i == columns - 1 && !spawnedAtLeastOne) {
-                continue // Skips creating a block here
-            }
-            
-            spawnedAtLeastOne = true // We successfully made a block!
-            
-            // Create the Block
-            let block = SKSpriteNode(color: UIColor(red: 0.8, green: 0.85, blue: 0.8, alpha: 1.0), size: CGSize(width: blockWidth, height: blockHeight))
-            block.position = CGPoint(x: startX + CGFloat(i) * (blockWidth + spacing), y: startY)
-            
-            let body = SKPhysicsBody(rectangleOf: block.size)
-            body.isDynamic = false
-            body.categoryBitMask = PhysicsCategory.block
-            block.physicsBody = body
-            
-            // Add a Number Label
-            let numberLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-            numberLabel.name = "blockNumber"
-            numberLabel.text = "\(Int.random(in: 1...6))" // Random number 1-6
-            numberLabel.fontSize = 24
-            numberLabel.fontColor = .darkGray
-            numberLabel.verticalAlignmentMode = .center
-            
-            block.addChild(numberLabel)
-            self.addChild(block)
-        }
+
+    private func buildBombBlock(node: SKNode, hp: Int) {
+        let sprite = SKSpriteNode(color: UIColor(red: 0.85, green: 0.22, blue: 0.22, alpha: 1),
+                                  size: CGSize(width: cell, height: cell))
+        sprite.name = "blockSprite"
+        node.userData = NSMutableDictionary()
+        node.userData?["bomb"] = true
+
+        // Pulsing glow to signal danger
+        let glow = SKShapeNode(
+            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
+            cornerRadius: 7)
+        glow.fillColor   = .clear
+        glow.strokeColor = UIColor(red: 1.0, green: 0.4, blue: 0.3, alpha: 0.5)
+        glow.lineWidth   = 2; glow.zPosition = 1
+        glow.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.15, duration: 0.7),
+            .fadeAlpha(to: 0.8,  duration: 0.7)
+        ])))
+
+        // Bomb icon (💥 emoji as label)
+        let icon = SKLabelNode(text: "💣")
+        icon.fontSize              = cell * 0.38
+        icon.verticalAlignmentMode = .center
+        icon.position              = CGPoint(x: 0, y: cell * 0.08)
+
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: cell, height: cell))
+        body.isDynamic = false; body.friction = 0; body.restitution = 1
+        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        node.addChild(sprite)
+        node.addChild(glow)
+        node.addChild(icon)
+        node.addChild(hpLabel(hp: hp, fontSize: cell * 0.28, offsetY: -cell * 0.24))
     }
-    // --- Progression Loop ---
-    
-    func advanceTurn() {
-        let downwardDistance: CGFloat = 70.0 // Block height (60) + spacing (10)
-        
-        // 1. Find all blocks on the screen and move them down
-        self.enumerateChildNodes(withName: "//*") { node, _ in
-            // Check if the node is a block
-            if node.physicsBody?.categoryBitMask == PhysicsCategory.block {
-                
-                // Create a smooth, relaxing downward animation
-                let moveDown = SKAction.moveBy(x: 0, y: -downwardDistance, duration: 0.4)
-                moveDown.timingMode = .easeInEaseOut // Starts slow, ends slow
-                
-                // Zen Rule: No Game Over. If a block gets too close to the bottom,
-                // we peacefully fade it out and remove it instead of killing the player.
-                if node.position.y - downwardDistance <= self.ballStartPos.y + 50 {
-                    let fade = SKAction.fadeOut(withDuration: 0.3)
-                    let remove = SKAction.removeFromParent()
-                    node.run(SKAction.sequence([moveDown, fade, remove]))
-                } else {
-                    node.run(moveDown)
-                }
-            }
-        }
-        
-        // 2. Spawn a brand new row at the top
-        spawnRow(atYPosition: self.frame.maxY - 100)
+
+    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
+        let lbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        lbl.name                    = "hp"
+        lbl.text                    = "\(hp)"
+        lbl.fontSize                = fontSize
+        lbl.fontColor               = .white
+        lbl.verticalAlignmentMode   = .center
+        lbl.horizontalAlignmentMode = .center
+        lbl.position                = CGPoint(x: 0, y: offsetY)
+        return lbl
     }
-    
-    func calculateBlockHP() -> Int {
+
+    private func addAmmo(at pos: CGPoint) {
+        let r    = ballR * 0.85
+        let node = SKShapeNode(circleOfRadius: r)
+        node.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.9)
+        node.strokeColor = UIColor(white: 1, alpha: 0.6)
+        node.lineWidth   = 1.5
+        node.position    = pos; node.name = "ammo"; node.zPosition = 3
+
+        // Inner sparkle
+        let inner = SKShapeNode(circleOfRadius: r * 0.45)
+        inner.fillColor   = UIColor(white: 1, alpha: 0.6)
+        inner.strokeColor = .clear
+        node.addChild(inner)
+
+        let body = SKPhysicsBody(circleOfRadius: r)
+        body.isDynamic          = false
+        body.categoryBitMask    = Mask.ammo
+        body.collisionBitMask   = 0
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        node.run(.repeatForever(.sequence([
+            .moveBy(x: 0, y: 3, duration: 0.6),
+            .moveBy(x: 0, y: -3, duration: 0.6)
+        ])))
+        node.run(.repeatForever(.sequence([
+            .scale(to: 1.10, duration: 0.9),
+            .scale(to: 0.92, duration: 0.9)
+        ])))
+        addChild(node)
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: HP / colour helpers
+    // ─────────────────────────────────────────
+    private func blockHP() -> Int {
+        // HP scales with turn number for progressive difficulty
+        let base: Double
         let roll = Int.random(in: 1...100)
-        let variance = Int.random(in: -2...2) // Range of -2 to +2
-        var baseHP: Double = 0
-        
-        if roll <= 60 {
-            // 60% chance: Half of current balls
-            baseHP = Double(totalBalls) / 2.0
-        } else if roll <= 90 {
-            // 30% chance: Equal to current balls
-            baseHP = Double(totalBalls)
-        } else {
-            // 10% chance: 150% of current balls
-            baseHP = Double(totalBalls) * 1.5
+        switch roll {
+        case ...60: base = Double(ballCount) * 0.5
+        case ...90: base = Double(ballCount)
+        default:    base = Double(ballCount) * 1.5
         }
-        
-        // Calculate final HP and ensure it never drops below 1
-        let finalHP = Int(round(baseHP)) + variance
-        return max(1, finalHP)
+        let turn    = Double(turnNumber) * 0.3
+        let raw     = Int(round(base + turn)) + Int.random(in: -1...1)
+        return max(1, raw)
     }
-    
-    // --- Collision Handling ---
-    
+
+    private func blockFill(hp: Int) -> UIColor {
+        // Maps HP relative to ballCount to a colour: teal → green → amber → red
+        let ratio = CGFloat(hp) / CGFloat(max(ballCount, 1))
+        switch ratio {
+        case ..<0.6:
+            // Low HP — teal/green
+            return UIColor(red: 0.20, green: 0.72, blue: 0.55, alpha: 1)
+        case ..<1.0:
+            // Mid HP — amber
+            return UIColor(red: 0.85, green: 0.65, blue: 0.15, alpha: 1)
+        default:
+            // High HP — red/orange
+            return UIColor(red: 0.85, green: 0.28, blue: 0.22, alpha: 1)
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Pan gesture + aiming
+    // ─────────────────────────────────────────
+    private func addPanGesture(to view: SKView) {
+        view.addGestureRecognizer(
+            UIPanGestureRecognizer(target: self, action: #selector(onPan(_:))))
+    }
+
+    @objc private func onPan(_ g: UIPanGestureRecognizer) {
+        guard !flying else { return }
+        let raw   = g.translation(in: view)
+        let angle = clampAngle(dx: raw.x, dy: -raw.y)
+
+        switch g.state {
+        case .began:
+            aiming = true; drawAimLine(angle)
+        case .changed:
+            if aiming { updateAimLine(angle) }
+        case .ended, .cancelled:
+            guard aiming else { return }
+            aiming = false; removeAimLine()
+            startVolley(angle: angle)
+        default: break
+        }
+    }
+
+    private func clampAngle(dx: CGFloat, dy: CGFloat) -> CGFloat {
+        let min8 = CGFloat(8) * .pi / 180
+        var a    = atan2(dy, dx)
+        if dy <= 0 { a = dx >= 0 ? min8 : .pi - min8 }
+        else       { a = Swift.min(Swift.max(a, min8), .pi - min8) }
+        return a
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Aim line — dashed with dot at ball
+    // ─────────────────────────────────────────
+    private func drawAimLine(_ angle: CGFloat) {
+        aimLine              = SKShapeNode()
+        aimLine?.strokeColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.5)
+        aimLine?.lineWidth   = 2
+        aimLine?.zPosition   = 9; aimLine?.name = "ui"
+        addChild(aimLine!)
+        updateAimLine(angle)
+    }
+
+    private func updateAimLine(_ angle: CGFloat) {
+        guard let ln = aimLine else { return }
+        let o   = shooterBall.position
+        let len = (gridOrigin.y + gridH) - o.y + 10
+        let p   = CGMutablePath()
+        p.move(to: o)
+        p.addLine(to: CGPoint(x: o.x + cos(angle)*len,
+                              y: o.y + sin(angle)*len))
+        ln.path = p.copy(dashingWithPhase: 0, lengths: [10, 8])
+    }
+
+    private func removeAimLine() { aimLine?.removeFromParent(); aimLine = nil }
+
+    // ─────────────────────────────────────────
+    // MARK: Volley
+    // ─────────────────────────────────────────
+    private func startVolley(angle: CGFloat) {
+        shotAngle    = angle
+        volleyTotal  = ballCount
+        volleyLanded = 0
+        firstLandX   = nil
+        flying       = true
+        stuckTick    = 0
+        ballsRisen.removeAll()
+
+        launch(shooterBall, angle: angle)
+
+        for i in 1..<volleyTotal {
+            run(.sequence([
+                .wait(forDuration: TimeInterval(i) * shootGap),
+                .run { [weak self] in
+                    guard let s = self else { return }
+                    let b      = s.makeBallNode()
+                    b.position = CGPoint(x: s.shootX, y: s.shootY)
+                    s.addChild(b)
+                    s.launch(b, angle: s.shotAngle)
+                }
+            ]))
+        }
+    }
+
+    private func launch(_ ball: SKSpriteNode, angle: CGFloat) {
+        ball.physicsBody?.velocity = CGVector(dx: cos(angle)*ballSpeed,
+                                              dy: sin(angle)*ballSpeed)
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: update
+    // ─────────────────────────────────────────
+    override func update(_ currentTime: TimeInterval) {
+        guard flying else { return }
+
+        var toProcess: [(SKSpriteNode, SKPhysicsBody)] = []
+        enumerateChildNodes(withName: "ball") { node, _ in
+            guard let sp = node as? SKSpriteNode,
+                  let bd = sp.physicsBody, bd.isDynamic else { return }
+            toProcess.append((sp, bd))
+        }
+
+        for (sp, body) in toProcess {
+            let v   = body.velocity
+            let oid = ObjectIdentifier(sp)
+
+            if sp.position.y > shootY + cell { ballsRisen.insert(oid) }
+
+            if ballsRisen.contains(oid), sp.position.y <= shootY, v.dy <= 0 {
+                ballsRisen.remove(oid)
+                ballLanded(sp)
+                continue
+            }
+
+            // Stuck watchdog
+            if abs(v.dy) < 20 && abs(v.dx) > 30 {
+                stuckTick += 1.0/60.0
+                if stuckTick >= stuckLimit {
+                    stuckTick = 0
+                    let sign: CGFloat = v.dy >= 0 ? -1 : 1
+                    body.velocity = CGVector(dx: v.dx, dy: sign * ballSpeed * 0.5)
+                }
+            } else { stuckTick = 0 }
+
+            // Constant speed
+            let spd = hypot(v.dx, v.dy)
+            if spd > 1 {
+                body.velocity = CGVector(dx: v.dx/spd*ballSpeed, dy: v.dy/spd*ballSpeed)
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Contacts
+    // ─────────────────────────────────────────
     func didBegin(_ contact: SKPhysicsContact) {
-        var firstBody: SKPhysicsBody
-        var secondBody: SKPhysicsBody
-        
-        if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
-            firstBody = contact.bodyA
-            secondBody = contact.bodyB
+        let a    = contact.bodyA.categoryBitMask
+        let b    = contact.bodyB.categoryBitMask
+        let pair = a | b
+
+        if pair == Mask.ball | Mask.block {
+            let blk = (a == Mask.block ? contact.bodyA : contact.bodyB).node
+            if let blk { hitBlock(blk) }
+        }
+        if pair == Mask.ball | Mask.ammo {
+            let ammoNode = (a == Mask.ammo ? contact.bodyA : contact.bodyB).node
+            if let ammoNode { collectAmmo(ammoNode) }
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Block hit
+    // ─────────────────────────────────────────
+    private func hitBlock(_ node: SKNode) {
+        guard let lbl  = node.childNode(withName: "hp") as? SKLabelNode,
+              let text = lbl.text, var hp = Int(text) else { return }
+        hp -= 1
+
+        if hp <= 0 {
+            node.physicsBody = nil
+            let isBomb = node.userData?["bomb"] as? Bool == true
+            if isBomb { explode(at: node.position) }
+            node.run(.sequence([
+                .group([
+                    .scale(to: isBomb ? 1.5 : 1.2, duration: 0.07),
+                    .fadeOut(withDuration: 0.09)
+                ]),
+                .removeFromParent()
+            ]))
         } else {
-            firstBody = contact.bodyB
-            secondBody = contact.bodyA
-        }
-        
-        // Check if the collision is between the Ball and a Block
-        if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.block {
-            if let blockNode = secondBody.node as? SKSpriteNode {
-                blockHit(block: blockNode)
+            lbl.text = "\(hp)"
+            // Update colour
+            if let sprite = node.childNode(withName: "blockSprite") as? SKSpriteNode {
+                sprite.run(.sequence([
+                    .colorize(with: blockFill(hp: hp), colorBlendFactor: 1, duration: 0.15)
+                ]))
             }
+            node.run(.sequence([.scale(to: 0.88, duration: 0.04),
+                                 .scale(to: 1.00, duration: 0.08)]))
         }
-        
-        // Check Ground Hit
-        if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.ground {
-            ballHitGround()
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Bomb explosion — area damage
+    // ─────────────────────────────────────────
+    private func explode(at pos: CGPoint) {
+        // Visual shockwave
+        let ring = SKShapeNode(circleOfRadius: 4)
+        ring.fillColor   = .clear
+        ring.strokeColor = UIColor(red: 1.0, green: 0.55, blue: 0.2, alpha: 0.9)
+        ring.lineWidth   = 3
+        ring.position    = pos; ring.zPosition = 8
+        addChild(ring)
+        ring.run(.sequence([
+            .group([
+                .scale(to: (cell * 2.8) / 4, duration: 0.35),
+                .sequence([.wait(forDuration: 0.15), .fadeOut(withDuration: 0.20)])
+            ]),
+            .removeFromParent()
+        ]))
+
+        // Particle burst
+        for _ in 0..<10 {
+            let spark = SKShapeNode(circleOfRadius: 3)
+            spark.fillColor = UIColor(red: 1.0,
+                                      green: CGFloat.random(in: 0.4...0.9),
+                                      blue: 0.1, alpha: 1)
+            spark.strokeColor = .clear
+            spark.position    = pos; spark.zPosition = 8
+            addChild(spark)
+            let dx = CGFloat.random(in: -60...60)
+            let dy = CGFloat.random(in: -60...60)
+            spark.run(.sequence([
+                .group([
+                    .moveBy(x: dx, y: dy, duration: 0.4),
+                    .fadeOut(withDuration: 0.4)
+                ]),
+                .removeFromParent()
+            ]))
         }
-        
-        // Check Ammo Hit
-        if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.ammo {
-            if let ammoNode = secondBody.node {
-                ammoNode.removeFromParent() // Remove it from the screen
-                totalBalls += 1             // Increase player's ammo count
+
+        // Damage all blocks within ~1.5 cell radius
+        let blastR = cell * 1.6
+        enumerateChildNodes(withName: "//*") { node, _ in
+            guard node.name == "block",
+                  let body = node.physicsBody,
+                  body.categoryBitMask == Mask.block else { return }
+            let dist = hypot(node.position.x - pos.x, node.position.y - pos.y)
+            if dist < blastR && dist > 1 {
+                self.hitBlock(node)
             }
         }
     }
-    
-    // --- Extracted Helper Functions ---
-    
-    func ballHitGround() {
-        guard isBallInPlay else { return }
-        isBallInPlay = false // UNLOCK THE GAME
-        
-        // Stop the ball and reset its Y position
-        playerBall.physicsBody?.velocity = .zero
-        playerBall.position.y = ballStartPos.y
-        
-        // Trigger the Zen breathing loop
-        advanceTurn()
+
+    // ─────────────────────────────────────────
+    // MARK: Ball landed
+    // ─────────────────────────────────────────
+    private func ballLanded(_ ball: SKSpriteNode) {
+        if firstLandX == nil {
+            let lo = gridOrigin.x + ballR + gap
+            let hi = gridOrigin.x + gridW - ballR - gap
+            firstLandX = Swift.min(Swift.max(ball.position.x, lo), hi)
+            showNextMarker(x: firstLandX!)
+        }
+
+        ball.physicsBody?.velocity = .zero
+        ball.physicsBody = nil
+        ball.run(.sequence([.fadeOut(withDuration: 0.10), .removeFromParent()]))
+
+        volleyLanded += 1
+        if volleyLanded >= volleyTotal { endVolley() }
     }
-    
-    func blockHit(block: SKSpriteNode) {
-        if let label = block.childNode(withName: "blockNumber") as? SKLabelNode,
-           let currentText = label.text,
-           var number = Int(currentText) {
-            
-            number -= 1
-            
-            if number <= 0 {
-                block.removeFromParent()
+
+    private func showNextMarker(x: CGFloat) {
+        nextMarker?.removeFromParent()
+        let dot = SKShapeNode(circleOfRadius: ballR * 0.7)
+        dot.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.30)
+        dot.strokeColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.70)
+        dot.lineWidth   = 1.5
+        dot.position    = CGPoint(x: x, y: shootY)
+        dot.zPosition   = 4; dot.name = "ui"
+        addChild(dot)
+        nextMarker = dot
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Ammo collected
+    // ─────────────────────────────────────────
+    private func collectAmmo(_ node: SKNode) {
+        node.physicsBody = nil
+        node.removeFromParent()
+        ballCount += 1
+        refreshHUD()
+
+        // Satisfying +1 pop label
+        let pop = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        pop.text      = "+1"
+        pop.fontSize  = 20
+        pop.fontColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1)
+        pop.position  = node.position; pop.zPosition = 12
+        addChild(pop)
+        pop.run(.sequence([
+            .group([
+                .moveBy(x: 0, y: 30, duration: 0.5),
+                .sequence([.wait(forDuration: 0.25), .fadeOut(withDuration: 0.25)])
+            ]),
+            .removeFromParent()
+        ]))
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: End volley
+    // ─────────────────────────────────────────
+    private func endVolley() {
+        if let lx = firstLandX { shootX = lx }
+        firstLandX = nil
+        flying     = false
+        stuckTick  = 0
+        ballsRisen.removeAll()
+
+        nextMarker?.removeFromParent()
+        nextMarker = nil
+
+        turnNumber += 1
+        refreshHUD()
+
+        // Satisfying "turn end" pulse on grid panel
+        if let panel = children.first(where: {
+            $0.name == "ui" && ($0 as? SKShapeNode)?.path != nil
+        }) as? SKShapeNode {
+            panel.run(.sequence([
+                .fadeAlpha(to: 0.12, duration: 0.08),
+                .fadeAlpha(to: 0.03, duration: 0.25)
+            ]))
+        }
+
+        placeShooterBall()
+        advanceBoard()
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Advance board
+    // ─────────────────────────────────────────
+    private func advanceBoard() {
+        enumerateChildNodes(withName: "//*") { node, _ in
+            guard let body = node.physicsBody else { return }
+            let cat = body.categoryBitMask
+            guard cat == Mask.block || cat == Mask.ammo else { return }
+
+            let moveDown = SKAction.moveBy(x: 0, y: -self.step, duration: 0.30)
+            moveDown.timingMode = .easeInEaseOut
+
+            let snapped = (node.position.y / self.step).rounded() * self.step
+            let nextY   = snapped - self.step
+
+            if nextY <= self.shootY + self.cell / 2 {
+                node.physicsBody = nil
+                node.run(.sequence([moveDown,
+                                    .fadeOut(withDuration: 0.15),
+                                    .removeFromParent()]))
             } else {
-                label.text = "\(number)"
-                let scaleDown = SKAction.scale(to: 0.9, duration: 0.05)
-                let scaleUp = SKAction.scale(to: 1.0, duration: 0.1)
-                block.run(SKAction.sequence([scaleDown, scaleUp]))
+                node.run(moveDown)
             }
         }
+
+        run(.sequence([
+            .wait(forDuration: 0.08),
+            .run { [weak self] in self?.spawnRow(0) }
+        ]))
+    }
+}
+
+// ─────────────────────────────────────────
+// MARK: CGPath helper for polygon
+// ─────────────────────────────────────────
+private extension CGPath {
+    static func polygon(points: [CGPoint]) -> CGPath {
+        let path = CGMutablePath()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for pt in points.dropFirst() { path.addLine(to: pt) }
+        path.closeSubpath()
+        return path
     }
 }
