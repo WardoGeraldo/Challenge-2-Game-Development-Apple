@@ -4,20 +4,29 @@
 //
 
 import SpriteKit
+import UIKit
 
-// MARK: - Physics
+// MARK: - Physics bitmasks
 private enum Mask {
-    static let ball:  UInt32 = 1
-    static let block: UInt32 = 2
-    static let wall:  UInt32 = 4
-    static let ammo:  UInt32 = 16
+    static let ball:   UInt32 = 1
+    static let block:  UInt32 = 2
+    static let wall:   UInt32 = 4
+    static let ammo:   UInt32 = 16
+    static let pickup: UInt32 = 32   // any floor pickup (ammo, portal token)
 }
 
-// MARK: - Block type
+// MARK: - Pickup type (spawns in empty slots)
+private enum PickupType {
+    case ammo
+    case portalToken   // rare — when collected, next shot warps through a portal
+}
+
+// MARK: - Block type (destructible, sits in grid)
 private enum BlockType {
-    case normal                      // plain square — always available
-    case triangle(flipped: Bool)     // triangle — unlocks turn 5
-    case bomb                        // explosion on death — unlocks turn 10
+    case normal
+    case triangle(flipped: Bool)   // unlocks turn 5
+    case bomb                      // unlocks turn 10
+    case rover                     // moves left/right — unlocks turn 3
 }
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
@@ -31,12 +40,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // ── Ball ──────────────────────────────────
     private let ballR:     CGFloat      = 9
-    private let ballSpeed: CGFloat      = 580
+    private let ballSpeed: CGFloat      = 400
     private let shootGap:  TimeInterval = 0.13
 
     // ── State ─────────────────────────────────
     private var ballCount  = 3
-    private var turnNumber = 0       // used for progressive unlocks + HP scaling
+    private var turnNumber = 0
     private var flying     = false
     private var aiming     = false
 
@@ -46,8 +55,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var shotAngle:    CGFloat  = .pi / 2
     private var ballsRisen:   Set<ObjectIdentifier> = []
 
-    private var stuckTick:  TimeInterval = 0
-    private let stuckLimit: TimeInterval = 2.5
+    private var lastDT:     TimeInterval = 0
+
+    // ── Haptics ───────────────────────────────
+    // Light impact for normal block hit, medium for low-HP block, heavy for kill + bomb
+    private let hapticLight  = UIImpactFeedbackGenerator(style: .light)
+    private let hapticMedium = UIImpactFeedbackGenerator(style: .medium)
+    private let hapticHeavy  = UIImpactFeedbackGenerator(style: .heavy)
+    private let hapticRigid  = UIImpactFeedbackGenerator(style: .rigid)
+
+    // ── Portal token state ────────────────────
+    // When player collects a portal token, the NEXT volley gets a mid-air
+    // warp: balls teleport from one random Y band to another.
+    // We store the portal token as a HUD indicator only — no complex registry needed.
+    private var portalCharges = 0      // how many portal-volleys the player has stored
+
+    // ── Rover ─────────────────────────────────
+    private let roverSpeed: CGFloat = 30   // pts/sec
 
     // ── Geometry ──────────────────────────────
     private var gridOrigin = CGPoint.zero
@@ -57,11 +81,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var shootX: CGFloat = 0
 
     // ── Nodes ─────────────────────────────────
-    private var shooterBall: SKSpriteNode!
-    private var aimLine:     SKShapeNode?
-    private var countLabel:  SKLabelNode!
-    private var nextMarker:  SKShapeNode?
-    private var turnLabel:   SKLabelNode!
+    private var shooterBall:   SKSpriteNode!
+    private var aimLine:       SKShapeNode?
+    private var countLabel:    SKLabelNode!
+    private var portalLabel:   SKLabelNode!
+    private var nextMarker:    SKShapeNode?
+    private var turnLabel:     SKLabelNode!
 
     // ─────────────────────────────────────────
     // MARK: didMove
@@ -70,8 +95,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         backgroundColor = UIColor(red: 0.09, green: 0.11, blue: 0.16, alpha: 1)
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
-        physicsWorld.speed = 1.0
 
+        hapticLight.prepare()
+        hapticMedium.prepare()
+        hapticHeavy.prepare()
+        hapticRigid.prepare()
         computeLayout(in: view)
         buildBackground()
         buildWalls()
@@ -110,7 +138,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: Background
     // ─────────────────────────────────────────
     private func buildBackground() {
-        // Outer panel
         let panel = SKShapeNode(
             rect: CGRect(x: gridOrigin.x, y: gridOrigin.y,
                          width: gridW, height: gridH), cornerRadius: 14)
@@ -119,14 +146,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         panel.lineWidth   = 1.5; panel.zPosition = 0; panel.name = "ui"
         addChild(panel)
 
-        // Ghost cells — block zone
         for r in 0..<blockRows {
             for c in 0..<cols { ghostCell(col: c, row: r, shooter: false) }
         }
-        // Shooter row — blue tint
         for c in 0..<cols { ghostCell(col: c, row: blockRows, shooter: true) }
 
-        // Divider
         let divY = shootY + cell / 2 + gap / 2
         let div  = SKShapeNode(); let dp = CGMutablePath()
         dp.move(to:    CGPoint(x: gridOrigin.x + 10,         y: divY))
@@ -178,16 +202,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: HUD
     // ─────────────────────────────────────────
     private func buildHUD() {
-        // Ball icon
         let iconX = gridOrigin.x + gap + ballR + 2
-        let icon  = SKShapeNode(circleOfRadius: ballR)
-        icon.fillColor   = ballFill
-        icon.strokeColor = .clear
-        icon.position    = CGPoint(x: iconX, y: shootY)
-        icon.zPosition   = 10; icon.name = "ui"
-        addChild(icon)
 
-        // Count label
+        // Ball circle icon
+        let ballIcon = SKShapeNode(circleOfRadius: ballR)
+        ballIcon.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1)
+        ballIcon.strokeColor = .clear
+        ballIcon.position    = CGPoint(x: iconX, y: shootY)
+        ballIcon.zPosition   = 10; ballIcon.name = "ui"
+        addChild(ballIcon)
+
         countLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         countLabel.fontSize                = 16
         countLabel.fontColor               = UIColor(white: 0.9, alpha: 1)
@@ -198,32 +222,37 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         countLabel.zPosition = 10
         addChild(countLabel)
 
-        // Turn label (top-right of grid)
+        // Portal charge indicator — hidden until player collects one
+        portalLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        portalLabel.fontSize                = 14
+        portalLabel.fontColor               = UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1)
+        portalLabel.text                    = ""
+        portalLabel.horizontalAlignmentMode = .left
+        portalLabel.verticalAlignmentMode   = .center
+        portalLabel.position  = CGPoint(x: iconX + ballR + 52, y: shootY)
+        portalLabel.zPosition = 10
+        addChild(portalLabel)
+
         turnLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
         turnLabel.fontSize                = 13
         turnLabel.fontColor               = UIColor(white: 0.5, alpha: 1)
         turnLabel.text                    = "TURN 1"
         turnLabel.horizontalAlignmentMode = .right
         turnLabel.verticalAlignmentMode   = .center
-        turnLabel.position  = CGPoint(x: gridOrigin.x + gridW - 6,
-                                      y: shootY)
+        turnLabel.position  = CGPoint(x: gridOrigin.x + gridW - 6, y: shootY)
         turnLabel.zPosition = 10
         addChild(turnLabel)
     }
 
-    private var ballFill: UIColor {
-        UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1)
-    }
-
     private func refreshHUD() {
         countLabel.text = "×\(ballCount)"
-        countLabel.run(.sequence([.scale(to: 1.5, duration: 0.07),
-                                  .scale(to: 1.0, duration: 0.10)]))
-        turnLabel.text = "TURN \(turnNumber + 1)"
+        countLabel.run(.sequence([.scale(to: 1.5, duration: 0.07), .scale(to: 1.0, duration: 0.10)]))
+        turnLabel.text  = "TURN \(turnNumber + 1)"
+        portalLabel.text = portalCharges > 0 ? "⬡ ×\(portalCharges)" : ""
     }
 
     // ─────────────────────────────────────────
-    // MARK: Shooter ball  — circle shape
+    // MARK: Shooter ball — rendered circle
     // ─────────────────────────────────────────
     private func placeShooterBall() {
         shooterBall?.removeFromParent()
@@ -233,22 +262,18 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func makeBallNode() -> SKSpriteNode {
-        // Draw a crisp circle using a CGPath mask
         let diameter = Int(ballR * 2)
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: diameter, height: diameter))
         let img = renderer.image { ctx in
             UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1).setFill()
-            ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0,
-                                                  width: diameter, height: diameter))
-            // Specular highlight
+            ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: diameter, height: diameter))
             UIColor(white: 1, alpha: 0.45).setFill()
             ctx.cgContext.fillEllipse(in: CGRect(x: diameter/4, y: diameter/4,
                                                   width: diameter/3, height: diameter/3))
         }
         let b = SKSpriteNode(texture: SKTexture(image: img),
                              size: CGSize(width: ballR*2, height: ballR*2))
-        b.name      = "ball"
-        b.zPosition = 7
+        b.name = "ball"; b.zPosition = 7
 
         let body = SKPhysicsBody(circleOfRadius: ballR)
         body.friction           = 0
@@ -258,7 +283,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         body.isDynamic          = true
         body.categoryBitMask    = Mask.ball
         body.collisionBitMask   = Mask.wall | Mask.block
-        body.contactTestBitMask = Mask.block | Mask.ammo
+        body.contactTestBitMask = Mask.block | Mask.pickup
         b.physicsBody = body
         return b
     }
@@ -273,36 +298,47 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private func spawnRow(_ row: Int) {
         guard row < blockRows else { return }
 
-        let shuffled = Array(0..<cols).shuffled()
-        let nBlocks  = Int.random(in: 2...4)
-        let bCols    = Set(shuffled.prefix(nBlocks))
-        let eCols    = shuffled.filter { !bCols.contains($0) }
+        let shuffled  = Array(0..<cols).shuffled()
+        let nBlocks   = Int.random(in: 2...4)
+        let bCols     = Set(shuffled.prefix(nBlocks))
+        var emptyCols = shuffled.filter { !bCols.contains($0) }.shuffled()
 
-        // Ammo appears roughly 1 per row, less frequently as game progresses
-        let ammoChance = max(25, 55 - turnNumber * 2)  // 55% → 25% over time
-        let ammoCol: Int? = Int.random(in: 0...99) < ammoChance ? eCols.randomElement() : nil
+        // ── Decide pickups for empty slots ────
+        // Ammo: 45% chance one spawns (reduced over time, min 20%)
+        let ammoChance   = max(20, 45 - turnNumber * 2)
+        var ammoCol:   Int? = Int.random(in: 0...99) < ammoChance   ? emptyCols.first : nil
+        if ammoCol != nil { emptyCols.removeFirst() }
+
+        // Portal token: rare — 12% base chance, only after turn 6, max 1 per row
+        let portalChance = turnNumber >= 6 ? 12 : 0
+        var portalCol: Int? = (!emptyCols.isEmpty && Int.random(in: 0...99) < portalChance)
+                                ? emptyCols.first : nil
+        if portalCol != nil && !emptyCols.isEmpty { emptyCols.removeFirst() }
 
         for c in 0..<cols {
             let pos = cellCenter(col: c, row: row)
             if bCols.contains(c) {
                 addBlock(at: pos, type: randomBlockType())
             } else if c == ammoCol {
-                addAmmo(at: pos)
+                addPickup(at: pos, type: .ammo)
+            } else if c == portalCol {
+                addPickup(at: pos, type: .portalToken)
             }
         }
     }
 
-    // Progressive block type unlock
+    // ─────────────────────────────────────────
+    // MARK: Block type selection
+    // ─────────────────────────────────────────
     private func randomBlockType() -> BlockType {
-        let hasBomb     = turnNumber >= 10
+        let hasRover    = turnNumber >= 3
         let hasTriangle = turnNumber >= 5
+        let hasBomb     = turnNumber >= 10
 
         let roll = Int.random(in: 0...99)
-        if hasBomb && roll < 12 {
-            return .bomb
-        } else if hasTriangle && roll < 30 {
-            return .triangle(flipped: Bool.random())
-        }
+        if hasBomb     && roll < 10 { return .bomb }
+        if hasTriangle && roll < 28 { return .triangle(flipped: Bool.random()) }
+        if hasRover    && roll < 20 { return .rover }
         return .normal
     }
 
@@ -317,18 +353,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         node.zPosition = 3
 
         switch type {
-        case .normal:
-            buildNormalBlock(node: node, hp: hp)
-        case .triangle(let flipped):
-            buildTriangleBlock(node: node, hp: hp, flipped: flipped)
-        case .bomb:
-            buildBombBlock(node: node, hp: hp)
+        case .normal:              buildNormalBlock(node: node, hp: hp)
+        case .triangle(let flip):  buildTriangleBlock(node: node, hp: hp, flipped: flip)
+        case .bomb:                buildBombBlock(node: node, hp: hp)
+        case .rover:               buildRoverBlock(node: node, hp: hp)
         }
 
         node.alpha = 0; node.setScale(0.2)
         addChild(node)
-        node.run(.group([.fadeIn(withDuration: 0.35),
-                         .scale(to: 1.0, duration: 0.35)]))
+        node.run(.group([.fadeIn(withDuration: 0.35), .scale(to: 1.0, duration: 0.35)]))
     }
 
     private func buildNormalBlock(node: SKNode, hp: Int) {
@@ -336,7 +369,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                                   size: CGSize(width: cell, height: cell))
         sprite.name = "blockSprite"
 
-        // Rounded corners via overlay shape
         let corner = SKShapeNode(
             rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
             cornerRadius: 7)
@@ -346,29 +378,26 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let body = SKPhysicsBody(rectangleOf: CGSize(width: cell, height: cell))
         body.isDynamic = false; body.friction = 0; body.restitution = 1
-        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.categoryBitMask    = Mask.block
+        body.collisionBitMask   = Mask.ball
         body.contactTestBitMask = Mask.ball
         node.physicsBody = body
 
-        node.addChild(sprite)
-        node.addChild(corner)
+        node.addChild(sprite); node.addChild(corner)
         node.addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
     }
 
     private func buildTriangleBlock(node: SKNode, hp: Int, flipped: Bool) {
-        // Visual triangle
+        let h = cell
         let path = CGMutablePath()
-        let h    = cell
         if flipped {
-            // ◿ — right-angle at bottom-left, angled face top-right
-            path.move(to:    CGPoint(x: -h/2,  y: -h/2))
-            path.addLine(to: CGPoint(x:  h/2,  y: -h/2))
-            path.addLine(to: CGPoint(x:  h/2,  y:  h/2))
+            path.move(to: CGPoint(x: -h/2, y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2, y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2, y:  h/2))
         } else {
-            // ◺ — right-angle at bottom-right, angled face top-left
-            path.move(to:    CGPoint(x: -h/2,  y: -h/2))
-            path.addLine(to: CGPoint(x:  h/2,  y: -h/2))
-            path.addLine(to: CGPoint(x: -h/2,  y:  h/2))
+            path.move(to: CGPoint(x: -h/2, y: -h/2))
+            path.addLine(to: CGPoint(x:  h/2, y: -h/2))
+            path.addLine(to: CGPoint(x: -h/2, y:  h/2))
         }
         path.closeSubpath()
 
@@ -377,13 +406,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         shape.strokeColor = UIColor(white: 1, alpha: 0.18)
         shape.lineWidth   = 1; shape.name = "blockSprite"
 
-        // Triangle physics — angled face makes ball deflect differently
-        var points: [CGPoint] = flipped
+        var pts: [CGPoint] = flipped
             ? [CGPoint(x:-h/2,y:-h/2), CGPoint(x:h/2,y:-h/2), CGPoint(x:h/2,y:h/2)]
             : [CGPoint(x:-h/2,y:-h/2), CGPoint(x:h/2,y:-h/2), CGPoint(x:-h/2,y:h/2)]
-        let body = SKPhysicsBody(polygonFrom: CGPath.polygon(points: points))
+        let body = SKPhysicsBody(polygonFrom: CGPath.polygon(points: pts))
         body.isDynamic = false; body.friction = 0; body.restitution = 1
-        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.categoryBitMask    = Mask.block
+        body.collisionBitMask   = Mask.ball
         body.contactTestBitMask = Mask.ball
         node.physicsBody = body
 
@@ -395,114 +424,202 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let sprite = SKSpriteNode(color: UIColor(red: 0.85, green: 0.22, blue: 0.22, alpha: 1),
                                   size: CGSize(width: cell, height: cell))
         sprite.name = "blockSprite"
-        node.userData = NSMutableDictionary()
-        node.userData?["bomb"] = true
+        node.userData = NSMutableDictionary(); node.userData?["bomb"] = true
 
-        // Pulsing glow to signal danger
         let glow = SKShapeNode(
-            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
-            cornerRadius: 7)
+            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell), cornerRadius: 7)
         glow.fillColor   = .clear
         glow.strokeColor = UIColor(red: 1.0, green: 0.4, blue: 0.3, alpha: 0.5)
         glow.lineWidth   = 2; glow.zPosition = 1
         glow.run(.repeatForever(.sequence([
-            .fadeAlpha(to: 0.15, duration: 0.7),
-            .fadeAlpha(to: 0.8,  duration: 0.7)
+            .fadeAlpha(to: 0.15, duration: 0.7), .fadeAlpha(to: 0.8, duration: 0.7)
         ])))
 
-        // Bomb icon (💥 emoji as label)
         let icon = SKLabelNode(text: "💣")
-        icon.fontSize              = cell * 0.38
-        icon.verticalAlignmentMode = .center
-        icon.position              = CGPoint(x: 0, y: cell * 0.08)
+        icon.fontSize = cell * 0.38; icon.verticalAlignmentMode = .center
+        icon.position = CGPoint(x: 0, y: cell * 0.08)
 
         let body = SKPhysicsBody(rectangleOf: CGSize(width: cell, height: cell))
         body.isDynamic = false; body.friction = 0; body.restitution = 1
-        body.categoryBitMask = Mask.block; body.collisionBitMask = Mask.ball
+        body.categoryBitMask    = Mask.block
+        body.collisionBitMask   = Mask.ball
         body.contactTestBitMask = Mask.ball
         node.physicsBody = body
 
-        node.addChild(sprite)
-        node.addChild(glow)
-        node.addChild(icon)
+        node.addChild(sprite); node.addChild(glow); node.addChild(icon)
         node.addChild(hpLabel(hp: hp, fontSize: cell * 0.28, offsetY: -cell * 0.24))
     }
 
-    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
-        let lbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        lbl.name                    = "hp"
-        lbl.text                    = "\(hp)"
-        lbl.fontSize                = fontSize
-        lbl.fontColor               = .white
-        lbl.verticalAlignmentMode   = .center
-        lbl.horizontalAlignmentMode = .center
-        lbl.position                = CGPoint(x: 0, y: offsetY)
-        return lbl
+    // ── Rover block ───────────────────────────
+    // A teal destructible block that slides left/right.
+    // Reverses on hitting a wall or another block.
+    // Gets wedged (stuck) when blocked on both sides.
+    // Automatically un-sticks when a neighbour block is destroyed.
+    private func buildRoverBlock(node: SKNode, hp: Int) {
+        let sprite = SKSpriteNode(color: UIColor(red: 0.15, green: 0.58, blue: 0.52, alpha: 1),
+                                  size: CGSize(width: cell, height: cell))
+        sprite.name = "blockSprite"
+
+        node.userData = NSMutableDictionary()
+        node.userData?["rover"] = true
+        node.userData?["dir"]   = (Bool.random() ? 1 : -1)   // start moving either way
+        node.userData?["stuck"] = false
+
+        // Corner overlay
+        let corner = SKShapeNode(
+            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell), cornerRadius: 7)
+        corner.fillColor   = .clear
+        corner.strokeColor = UIColor(white: 1, alpha: 0.14)
+        corner.lineWidth   = 1; corner.zPosition = 1
+
+        // Left/right arrows showing it moves
+        let arrow = SKLabelNode(text: "⟷")
+        arrow.fontSize              = cell * 0.30
+        arrow.fontColor             = UIColor(white: 1, alpha: 0.65)
+        arrow.verticalAlignmentMode = .center
+        arrow.position              = CGPoint(x: 0, y: cell * 0.08)
+
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: cell, height: cell))
+        body.isDynamic          = false
+        body.friction           = 0
+        body.restitution        = 1
+        body.categoryBitMask    = Mask.block
+        body.collisionBitMask   = Mask.ball
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        node.addChild(sprite); node.addChild(corner); node.addChild(arrow)
+        node.addChild(hpLabel(hp: hp, fontSize: cell * 0.30, offsetY: -cell * 0.20))
     }
 
-    private func addAmmo(at pos: CGPoint) {
+    // ─────────────────────────────────────────
+    // MARK: Pickup builders (ammo + portal token)
+    // ─────────────────────────────────────────
+    private func addPickup(at pos: CGPoint, type: PickupType) {
+        switch type {
+        case .ammo:        addAmmoPickup(at: pos)
+        case .portalToken: addPortalPickup(at: pos)
+        }
+    }
+
+    private func addAmmoPickup(at pos: CGPoint) {
         let r    = ballR * 0.85
         let node = SKShapeNode(circleOfRadius: r)
         node.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.9)
         node.strokeColor = UIColor(white: 1, alpha: 0.6)
         node.lineWidth   = 1.5
-        node.position    = pos; node.name = "ammo"; node.zPosition = 3
+        node.position    = pos; node.name = "pickup_ammo"; node.zPosition = 3
 
-        // Inner sparkle
         let inner = SKShapeNode(circleOfRadius: r * 0.45)
-        inner.fillColor   = UIColor(white: 1, alpha: 0.6)
-        inner.strokeColor = .clear
+        inner.fillColor = UIColor(white: 1, alpha: 0.6); inner.strokeColor = .clear
         node.addChild(inner)
 
         let body = SKPhysicsBody(circleOfRadius: r)
         body.isDynamic          = false
-        body.categoryBitMask    = Mask.ammo
+        body.categoryBitMask    = Mask.pickup
         body.collisionBitMask   = 0
         body.contactTestBitMask = Mask.ball
         node.physicsBody = body
 
         node.run(.repeatForever(.sequence([
-            .moveBy(x: 0, y: 3, duration: 0.6),
-            .moveBy(x: 0, y: -3, duration: 0.6)
+            .moveBy(x: 0, y: 3, duration: 0.6), .moveBy(x: 0, y: -3, duration: 0.6)
         ])))
         node.run(.repeatForever(.sequence([
-            .scale(to: 1.10, duration: 0.9),
-            .scale(to: 0.92, duration: 0.9)
+            .scale(to: 1.10, duration: 0.9), .scale(to: 0.92, duration: 0.9)
         ])))
         addChild(node)
     }
 
+    // Portal token: purple hexagon pickup — rare, glows and pulses
+    private func addPortalPickup(at pos: CGPoint) {
+        let size = cell * 0.46
+
+        // Hexagon shape
+        let hex  = hexagonPath(radius: size)
+        let node = SKShapeNode(path: hex)
+        node.fillColor   = UIColor(red: 0.30, green: 0.15, blue: 0.60, alpha: 0.95)
+        node.strokeColor = UIColor(red: 0.72, green: 0.50, blue: 1.00, alpha: 0.90)
+        node.lineWidth   = 2
+        node.position    = pos; node.name = "pickup_portal"; node.zPosition = 3
+
+        // Inner swirl ring
+        let ring = SKShapeNode(circleOfRadius: size * 0.55)
+        ring.fillColor   = .clear
+        ring.strokeColor = UIColor(red: 0.80, green: 0.65, blue: 1.0, alpha: 0.70)
+        ring.lineWidth   = 1.5
+        ring.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 2.4)))
+        node.addChild(ring)
+
+        // Glyph
+        let glyph = SKLabelNode(text: "⬡")
+        glyph.fontSize              = size * 1.1
+        glyph.fontColor             = UIColor(red: 0.85, green: 0.72, blue: 1.0, alpha: 1)
+        glyph.verticalAlignmentMode = .center
+        node.addChild(glyph)
+
+        let body = SKPhysicsBody(circleOfRadius: size)
+        body.isDynamic          = false
+        body.categoryBitMask    = Mask.pickup
+        body.collisionBitMask   = 0
+        body.contactTestBitMask = Mask.ball
+        node.physicsBody = body
+
+        // Pulse + slow float
+        node.run(.repeatForever(.sequence([
+            .group([
+                .sequence([.moveBy(x: 0, y: 4, duration: 0.8), .moveBy(x: 0, y: -4, duration: 0.8)]),
+                .sequence([.scale(to: 1.12, duration: 0.8), .scale(to: 0.90, duration: 0.8)])
+            ])
+        ])))
+        // Slow rotate
+        node.run(.repeatForever(.rotate(byAngle: -.pi * 2, duration: 6)))
+        addChild(node)
+    }
+
+    // Helper: build a regular hexagon CGPath centred at origin
+    private func hexagonPath(radius: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        for i in 0..<6 {
+            let angle = CGFloat(i) * .pi / 3 - .pi / 6
+            let pt    = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            i == 0 ? path.move(to: pt) : path.addLine(to: pt)
+        }
+        path.closeSubpath()
+        return path
+    }
+
     // ─────────────────────────────────────────
-    // MARK: HP / colour helpers
+    // MARK: HP + colour helpers
     // ─────────────────────────────────────────
     private func blockHP() -> Int {
-        // HP scales with turn number for progressive difficulty
-        let base: Double
         let roll = Int.random(in: 1...100)
+        let base: Double
         switch roll {
         case ...60: base = Double(ballCount) * 0.5
         case ...90: base = Double(ballCount)
         default:    base = Double(ballCount) * 1.5
         }
-        let turn    = Double(turnNumber) * 0.3
-        let raw     = Int(round(base + turn)) + Int.random(in: -1...1)
-        return max(1, raw)
+        let turn = Double(turnNumber) * 0.3
+        return max(1, Int(round(base + turn)) + Int.random(in: -1...1))
     }
 
     private func blockFill(hp: Int) -> UIColor {
-        // Maps HP relative to ballCount to a colour: teal → green → amber → red
         let ratio = CGFloat(hp) / CGFloat(max(ballCount, 1))
         switch ratio {
-        case ..<0.6:
-            // Low HP — teal/green
-            return UIColor(red: 0.20, green: 0.72, blue: 0.55, alpha: 1)
-        case ..<1.0:
-            // Mid HP — amber
-            return UIColor(red: 0.85, green: 0.65, blue: 0.15, alpha: 1)
-        default:
-            // High HP — red/orange
-            return UIColor(red: 0.85, green: 0.28, blue: 0.22, alpha: 1)
+        case ..<0.6: return UIColor(red: 0.20, green: 0.72, blue: 0.55, alpha: 1)  // teal
+        case ..<1.0: return UIColor(red: 0.85, green: 0.65, blue: 0.15, alpha: 1)  // amber
+        default:     return UIColor(red: 0.85, green: 0.28, blue: 0.22, alpha: 1)  // red
         }
+    }
+
+    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
+        let lbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        lbl.name = "hp"; lbl.text = "\(hp)"; lbl.fontSize = fontSize
+        lbl.fontColor = .white
+        lbl.verticalAlignmentMode   = .center
+        lbl.horizontalAlignmentMode = .center
+        lbl.position = CGPoint(x: 0, y: offsetY)
+        return lbl
     }
 
     // ─────────────────────────────────────────
@@ -540,7 +657,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // ─────────────────────────────────────────
-    // MARK: Aim line — dashed with dot at ball
+    // MARK: Aim line
     // ─────────────────────────────────────────
     private func drawAimLine(_ angle: CGFloat) {
         aimLine              = SKShapeNode()
@@ -557,8 +674,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let len = (gridOrigin.y + gridH) - o.y + 10
         let p   = CGMutablePath()
         p.move(to: o)
-        p.addLine(to: CGPoint(x: o.x + cos(angle)*len,
-                              y: o.y + sin(angle)*len))
+        p.addLine(to: CGPoint(x: o.x + cos(angle)*len, y: o.y + sin(angle)*len))
         ln.path = p.copy(dashingWithPhase: 0, lengths: [10, 8])
     }
 
@@ -573,8 +689,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         volleyLanded = 0
         firstLandX   = nil
         flying       = true
-        stuckTick    = 0
         ballsRisen.removeAll()
+
+        // If player has a portal charge, activate warp effect for this volley
+        if portalCharges > 0 {
+            portalCharges -= 1
+            refreshHUD()
+            activatePortalVolley()
+        }
 
         launch(shooterBall, angle: angle)
 
@@ -593,14 +715,139 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func launch(_ ball: SKSpriteNode, angle: CGFloat) {
-        ball.physicsBody?.velocity = CGVector(dx: cos(angle)*ballSpeed,
-                                              dy: sin(angle)*ballSpeed)
+        ball.physicsBody?.velocity = CGVector(dx: cos(angle)*ballSpeed, dy: sin(angle)*ballSpeed)
+    }
+
+    // Portal volley effect: place two glowing "warp rings" inside the grid.
+    // Any ball that passes through the entry ring teleports to the exit ring.
+    // Visual-only approach — no physics body needed, we do position checks in update().
+    private func activatePortalVolley() {
+        // Collect all occupied positions (blocks + pickups currently on the board)
+        var occupied = Set<String>()
+        enumerateChildNodes(withName: "//*") { node, _ in
+            guard let body = node.physicsBody else { return }
+            let cat = body.categoryBitMask
+            guard cat == Mask.block || cat == Mask.pickup else { return }
+            // Round to nearest cell centre so float-animation offsets don't matter
+            let col = Int(round((node.position.x - self.gridOrigin.x - self.gap - self.cell/2) / self.step))
+            let row = Int(round((self.gridOrigin.y + self.gridH - self.gap - self.cell/2 - node.position.y) / self.step))
+            occupied.insert("\(col),\(row)")
+        }
+
+        // Find an empty cell in the TOP half (rows 0-3) and BOTTOM half (rows 4-7)
+        func emptyCell(inRows range: ClosedRange<Int>) -> CGPoint? {
+            var candidates: [CGPoint] = []
+            for row in range {
+                for col in 0..<self.cols {
+                    if !occupied.contains("\(col),\(row)") {
+                        candidates.append(self.cellCenter(col: col, row: row))
+                    }
+                }
+            }
+            return candidates.randomElement()
+        }
+
+        guard let topPos    = emptyCell(inRows: 0...3),
+              let bottomPos = emptyCell(inRows: 4...7) else { return }  // no room — skip
+
+        // Entry ring in top half (purple), exit ring in bottom half (teal)
+        let pairs: [(CGPoint, UIColor)] = [
+            (topPos,    UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 0.9)),
+            (bottomPos, UIColor(red: 0.50, green: 0.85, blue: 0.72, alpha: 0.9))
+        ]
+
+        for (pos, color) in pairs {
+            let ring = SKShapeNode(circleOfRadius: cell * 0.40)
+            ring.fillColor   = color.withAlphaComponent(0.13)
+            ring.strokeColor = color
+            ring.lineWidth   = 2.5
+            ring.position    = pos
+            ring.zPosition   = 8; ring.name = "portalRing"
+            ring.userData    = NSMutableDictionary()
+            ring.userData?["entryY"] = topPos.y
+            ring.userData?["exitY"]  = bottomPos.y
+            // Inner spinning ring for extra visual pop
+            let inner = SKShapeNode(circleOfRadius: cell * 0.22)
+            inner.fillColor   = .clear
+            inner.strokeColor = color.withAlphaComponent(0.55)
+            inner.lineWidth   = 1.2
+            inner.run(.repeatForever(.rotate(byAngle: -.pi * 2, duration: 1.2)))
+            ring.addChild(inner)
+            ring.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 2.0)))
+            addChild(ring)
+        }
+
+        // Auto-clean after volley ends (12s safety net)
+        run(.sequence([.wait(forDuration: 12), .run {
+            self.enumerateChildNodes(withName: "portalRing") { n, _ in n.removeFromParent() }
+        }]))
     }
 
     // ─────────────────────────────────────────
-    // MARK: update
+    // MARK: update — rover movement + ball logic
     // ─────────────────────────────────────────
     override func update(_ currentTime: TimeInterval) {
+        let dt: CGFloat = lastDT == 0 ? 1/60.0
+                          : CGFloat(min(currentTime - lastDT, 1/30.0))
+        lastDT = currentTime
+
+        // ── Rover movement (always runs, even while flying) ──
+        enumerateChildNodes(withName: "block") { node, _ in
+            guard node.userData?["rover"] as? Bool == true else { return }
+            let stuck = node.userData?["stuck"] as? Bool ?? false
+            if stuck { return }
+
+            var dir  = node.userData?["dir"] as? Int ?? 1
+            let newX = node.position.x + CGFloat(dir) * self.roverSpeed * dt
+
+            let leftBound  = self.gridOrigin.x + self.gap + self.cell / 2
+            let rightBound = self.gridOrigin.x + self.gridW - self.gap - self.cell / 2
+            let tolerance  = self.cell * 0.55
+
+            // Check if blocked by adjacent block in movement direction
+            var sideBlocked = false
+            self.enumerateChildNodes(withName: "block") { other, _ in
+                guard other !== node else { return }
+                let dx = other.position.x - node.position.x
+                let dy = abs(other.position.y - node.position.y)
+                if dy < tolerance && abs(dx) < self.cell + self.gap * 1.4 {
+                    let sideDir = dx > 0 ? 1 : -1
+                    if sideDir == dir { sideBlocked = true }
+                }
+            }
+
+            let hitWall = (dir == 1 && newX >= rightBound) || (dir == -1 && newX <= leftBound)
+
+            if hitWall || sideBlocked {
+                // Try reversing — check if other side is also blocked
+                let revDir = -dir
+                var revBlocked = false
+                let revHitWall = (revDir == 1 && node.position.x >= rightBound - self.cell*0.5)
+                              || (revDir == -1 && node.position.x <= leftBound  + self.cell*0.5)
+
+                self.enumerateChildNodes(withName: "block") { other, _ in
+                    guard other !== node else { return }
+                    let dx = other.position.x - node.position.x
+                    let dy = abs(other.position.y - node.position.y)
+                    if dy < tolerance && abs(dx) < self.cell + self.gap * 1.4 {
+                        let sideDir = dx > 0 ? 1 : -1
+                        if sideDir == revDir { revBlocked = true }
+                    }
+                }
+
+                if revBlocked || revHitWall {
+                    node.userData?["stuck"] = true   // wedged — stop until freed
+                } else {
+                    dir = revDir
+                    node.userData?["dir"] = dir
+                    node.position.x += CGFloat(dir) * self.roverSpeed * dt
+                }
+            } else {
+                node.position.x = newX
+            }
+        }
+
+        // ── Ball update ──────────────────────
         guard flying else { return }
 
         var toProcess: [(SKSpriteNode, SKPhysicsBody)] = []
@@ -614,28 +861,47 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let v   = body.velocity
             let oid = ObjectIdentifier(sp)
 
+            // Track if ball has risen above shooter row
             if sp.position.y > shootY + cell { ballsRisen.insert(oid) }
 
+            // Landing: ball has risen and returned to shooter row moving downward
             if ballsRisen.contains(oid), sp.position.y <= shootY, v.dy <= 0 {
                 ballsRisen.remove(oid)
                 ballLanded(sp)
                 continue
             }
 
-            // Stuck watchdog
-            if abs(v.dy) < 20 && abs(v.dx) > 30 {
-                stuckTick += 1.0/60.0
-                if stuckTick >= stuckLimit {
-                    stuckTick = 0
-                    let sign: CGFloat = v.dy >= 0 ? -1 : 1
-                    body.velocity = CGVector(dx: v.dx, dy: sign * ballSpeed * 0.5)
+            // Portal warp check — if a ring exists, warp ball at the entry band
+            if !children.filter({ $0.name == "portalRing" }).isEmpty {
+                enumerateChildNodes(withName: "portalRing") { ringNode, _ in
+                    guard let ring = ringNode as? SKShapeNode,
+                          let eY   = ring.userData?["entryY"] as? CGFloat,
+                          let xY   = ring.userData?["exitY"]  as? CGFloat else { return }
+                    // If ball is near entry Y and moving upward, warp it to exit Y
+                    if abs(sp.position.y - eY) < self.cell * 0.4 && body.velocity.dy > 0 {
+                        sp.position.y = xY
+                        // Small flash
+                        sp.run(.sequence([.scale(to: 1.5, duration: 0.05), .scale(to: 1.0, duration: 0.08)]))
+                    }
                 }
-            } else { stuckTick = 0 }
+            }
 
-            // Constant speed
-            let spd = hypot(v.dx, v.dy)
+            // ── Minimum vertical component ──────────────────────────────
+            // Enforce |vy| >= minVY every frame. Makes it physically impossible
+            // for the ball to settle into a horizontal bounce loop.
+            let minVY: CGFloat = ballSpeed * 0.18
+            var vx = v.dx
+            var vy = v.dy
+            if abs(vy) < minVY {
+                // Point away from whichever wall it's closest to vertically
+                let midY = shootY + (gridOrigin.y + gridH - shootY) / 2
+                vy = sp.position.y > midY ? -minVY : minVY
+            }
+
+            // ── Constant speed normaliser ────────────────────────────────────
+            let spd = hypot(vx, vy)
             if spd > 1 {
-                body.velocity = CGVector(dx: v.dx/spd*ballSpeed, dy: v.dy/spd*ballSpeed)
+                body.velocity = CGVector(dx: vx/spd*ballSpeed, dy: vy/spd*ballSpeed)
             }
         }
     }
@@ -644,17 +910,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: Contacts
     // ─────────────────────────────────────────
     func didBegin(_ contact: SKPhysicsContact) {
-        let a    = contact.bodyA.categoryBitMask
-        let b    = contact.bodyB.categoryBitMask
+        let a = contact.bodyA.categoryBitMask
+        let b = contact.bodyB.categoryBitMask
         let pair = a | b
 
+        // Ball ↔ Block
         if pair == Mask.ball | Mask.block {
             let blk = (a == Mask.block ? contact.bodyA : contact.bodyB).node
             if let blk { hitBlock(blk) }
         }
-        if pair == Mask.ball | Mask.ammo {
-            let ammoNode = (a == Mask.ammo ? contact.bodyA : contact.bodyB).node
-            if let ammoNode { collectAmmo(ammoNode) }
+
+        // Ball ↔ Pickup
+        if pair == Mask.ball | Mask.pickup {
+            let pickupNode = (a == Mask.pickup ? contact.bodyA : contact.bodyB).node
+            if let pickupNode { collectPickup(pickupNode) }
         }
     }
 
@@ -669,7 +938,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if hp <= 0 {
             node.physicsBody = nil
             let isBomb = node.userData?["bomb"] as? Bool == true
-            if isBomb { explode(at: node.position) }
+            if isBomb {
+                explode(at: node.position)
+                hapticHeavy.impactOccurred(intensity: 1.0)   // big boom
+            } else {
+                hapticRigid.impactOccurred(intensity: 0.85)   // satisfying block pop
+            }
+            unstickRoversNear(pos: node.position)
             node.run(.sequence([
                 .group([
                     .scale(to: isBomb ? 1.5 : 1.2, duration: 0.07),
@@ -679,27 +954,44 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             ]))
         } else {
             lbl.text = "\(hp)"
-            // Update colour
-            if let sprite = node.childNode(withName: "blockSprite") as? SKSpriteNode {
-                sprite.run(.sequence([
-                    .colorize(with: blockFill(hp: hp), colorBlendFactor: 1, duration: 0.15)
-                ]))
+            // Haptic intensity scales with how hurt the block is
+            let ratio = CGFloat(hp) / CGFloat(max(ballCount, 1))
+            if ratio < 0.5 {
+                hapticMedium.impactOccurred(intensity: 0.9)   // nearly dead — satisfying thud
+            } else {
+                hapticLight.impactOccurred(intensity: 0.7)    // regular hit — soft tick
             }
-            node.run(.sequence([.scale(to: 0.88, duration: 0.04),
-                                 .scale(to: 1.00, duration: 0.08)]))
+            if let sprite = node.childNode(withName: "blockSprite") as? SKSpriteNode {
+                sprite.run(.colorize(with: blockFill(hp: hp), colorBlendFactor: 1, duration: 0.15))
+            }
+            node.run(.sequence([.scale(to: 0.88, duration: 0.04), .scale(to: 1.00, duration: 0.08)]))
         }
     }
 
     // ─────────────────────────────────────────
-    // MARK: Bomb explosion — area damage
+    // MARK: Rover un-stick
+    // ─────────────────────────────────────────
+    private func unstickRoversNear(pos: CGPoint) {
+        enumerateChildNodes(withName: "block") { node, _ in
+            guard node.userData?["rover"]  as? Bool == true,
+                  node.userData?["stuck"]  as? Bool == true else { return }
+            let dist = hypot(node.position.x - pos.x, node.position.y - pos.y)
+            if dist < self.cell * 1.8 {
+                node.userData?["stuck"] = false
+                // Move away from the destroyed block
+                node.userData?["dir"] = pos.x > node.position.x ? -1 : 1
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Bomb explosion
     // ─────────────────────────────────────────
     private func explode(at pos: CGPoint) {
-        // Visual shockwave
         let ring = SKShapeNode(circleOfRadius: 4)
         ring.fillColor   = .clear
         ring.strokeColor = UIColor(red: 1.0, green: 0.55, blue: 0.2, alpha: 0.9)
-        ring.lineWidth   = 3
-        ring.position    = pos; ring.zPosition = 8
+        ring.lineWidth   = 3; ring.position = pos; ring.zPosition = 8
         addChild(ring)
         ring.run(.sequence([
             .group([
@@ -709,37 +1001,63 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             .removeFromParent()
         ]))
 
-        // Particle burst
         for _ in 0..<10 {
             let spark = SKShapeNode(circleOfRadius: 3)
-            spark.fillColor = UIColor(red: 1.0,
-                                      green: CGFloat.random(in: 0.4...0.9),
-                                      blue: 0.1, alpha: 1)
+            spark.fillColor   = UIColor(red: 1.0, green: CGFloat.random(in: 0.4...0.9), blue: 0.1, alpha: 1)
             spark.strokeColor = .clear
             spark.position    = pos; spark.zPosition = 8
             addChild(spark)
             let dx = CGFloat.random(in: -60...60)
             let dy = CGFloat.random(in: -60...60)
             spark.run(.sequence([
-                .group([
-                    .moveBy(x: dx, y: dy, duration: 0.4),
-                    .fadeOut(withDuration: 0.4)
-                ]),
+                .group([.moveBy(x: dx, y: dy, duration: 0.4), .fadeOut(withDuration: 0.4)]),
                 .removeFromParent()
             ]))
         }
 
-        // Damage all blocks within ~1.5 cell radius
         let blastR = cell * 1.6
         enumerateChildNodes(withName: "//*") { node, _ in
             guard node.name == "block",
                   let body = node.physicsBody,
                   body.categoryBitMask == Mask.block else { return }
             let dist = hypot(node.position.x - pos.x, node.position.y - pos.y)
-            if dist < blastR && dist > 1 {
-                self.hitBlock(node)
-            }
+            if dist < blastR && dist > 1 { self.hitBlock(node) }
         }
+    }
+
+    // ─────────────────────────────────────────
+    // MARK: Pickup collected
+    // ─────────────────────────────────────────
+    private func collectPickup(_ node: SKNode) {
+        node.physicsBody = nil
+        let name = node.name ?? ""
+        node.removeFromParent()
+
+        if name == "pickup_ammo" {
+            ballCount += 1
+            refreshHUD()
+            hapticMedium.impactOccurred(intensity: 1.0)   // rewarding pickup pop
+            floatLabel("+1", at: node.position, color: UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1))
+        } else if name == "pickup_portal" {
+            portalCharges += 1
+            refreshHUD()
+            hapticHeavy.impactOccurred(intensity: 0.75)   // rare pickup — deeper feel
+            floatLabel("⬡ portal!", at: node.position, color: UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1))
+        }
+    }
+
+    private func floatLabel(_ text: String, at pos: CGPoint, color: UIColor) {
+        let lbl = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        lbl.text = text; lbl.fontSize = 18; lbl.fontColor = color
+        lbl.position = pos; lbl.zPosition = 12
+        addChild(lbl)
+        lbl.run(.sequence([
+            .group([
+                .moveBy(x: 0, y: 34, duration: 0.55),
+                .sequence([.wait(forDuration: 0.25), .fadeOut(withDuration: 0.30)])
+            ]),
+            .removeFromParent()
+        ]))
     }
 
     // ─────────────────────────────────────────
@@ -752,11 +1070,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             firstLandX = Swift.min(Swift.max(ball.position.x, lo), hi)
             showNextMarker(x: firstLandX!)
         }
-
         ball.physicsBody?.velocity = .zero
         ball.physicsBody = nil
         ball.run(.sequence([.fadeOut(withDuration: 0.10), .removeFromParent()]))
-
         volleyLanded += 1
         if volleyLanded >= volleyTotal { endVolley() }
     }
@@ -764,38 +1080,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private func showNextMarker(x: CGFloat) {
         nextMarker?.removeFromParent()
         let dot = SKShapeNode(circleOfRadius: ballR * 0.7)
-        dot.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.30)
-        dot.strokeColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.70)
+        dot.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.25)
+        dot.strokeColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.65)
         dot.lineWidth   = 1.5
         dot.position    = CGPoint(x: x, y: shootY)
         dot.zPosition   = 4; dot.name = "ui"
         addChild(dot)
         nextMarker = dot
-    }
-
-    // ─────────────────────────────────────────
-    // MARK: Ammo collected
-    // ─────────────────────────────────────────
-    private func collectAmmo(_ node: SKNode) {
-        node.physicsBody = nil
-        node.removeFromParent()
-        ballCount += 1
-        refreshHUD()
-
-        // Satisfying +1 pop label
-        let pop = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        pop.text      = "+1"
-        pop.fontSize  = 20
-        pop.fontColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1)
-        pop.position  = node.position; pop.zPosition = 12
-        addChild(pop)
-        pop.run(.sequence([
-            .group([
-                .moveBy(x: 0, y: 30, duration: 0.5),
-                .sequence([.wait(forDuration: 0.25), .fadeOut(withDuration: 0.25)])
-            ]),
-            .removeFromParent()
-        ]))
     }
 
     // ─────────────────────────────────────────
@@ -805,16 +1096,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if let lx = firstLandX { shootX = lx }
         firstLandX = nil
         flying     = false
-        stuckTick  = 0
         ballsRisen.removeAll()
+        // Clean up any leftover portal rings
+        enumerateChildNodes(withName: "portalRing") { n, _ in n.removeFromParent() }
 
-        nextMarker?.removeFromParent()
-        nextMarker = nil
-
+        nextMarker?.removeFromParent(); nextMarker = nil
         turnNumber += 1
         refreshHUD()
 
-        // Satisfying "turn end" pulse on grid panel
         if let panel = children.first(where: {
             $0.name == "ui" && ($0 as? SKShapeNode)?.path != nil
         }) as? SKShapeNode {
@@ -835,7 +1124,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         enumerateChildNodes(withName: "//*") { node, _ in
             guard let body = node.physicsBody else { return }
             let cat = body.categoryBitMask
-            guard cat == Mask.block || cat == Mask.ammo else { return }
+            // Move both blocks and pickups
+            guard cat == Mask.block || cat == Mask.pickup else { return }
 
             let moveDown = SKAction.moveBy(x: 0, y: -self.step, duration: 0.30)
             moveDown.timingMode = .easeInEaseOut
@@ -845,9 +1135,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
             if nextY <= self.shootY + self.cell / 2 {
                 node.physicsBody = nil
-                node.run(.sequence([moveDown,
-                                    .fadeOut(withDuration: 0.15),
-                                    .removeFromParent()]))
+                node.run(.sequence([moveDown, .fadeOut(withDuration: 0.15), .removeFromParent()]))
             } else {
                 node.run(moveDown)
             }
@@ -861,7 +1149,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 }
 
 // ─────────────────────────────────────────
-// MARK: CGPath helper for polygon
+// MARK: CGPath polygon helper
 // ─────────────────────────────────────────
 private extension CGPath {
     static func polygon(points: [CGPoint]) -> CGPath {
