@@ -5,7 +5,6 @@
 //  Created by Saujana Shafi on 01/05/26.
 //
 
-import SpriteKit
 import SwiftUI
 
 struct ContentView: View {

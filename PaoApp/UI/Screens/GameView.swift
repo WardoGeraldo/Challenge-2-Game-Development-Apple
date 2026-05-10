@@ -5,6 +5,7 @@
 //  Created by Saujana Shafi on 10/05/26.
 //
 
+import SpriteKit
 import SwiftUI
 
 struct GameView: View {
