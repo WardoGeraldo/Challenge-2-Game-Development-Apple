@@ -6,8 +6,7 @@ This file provides guidance to Agents when working with code in this repository.
 
 ## Overview
 
-**Pao** is an iOS productivity app that helps users stay focused and manage their tasks efficiently. It combines two proven techniques — **Pomodoro** (Deep Focus) and **Eisenhower Matrix** (Task Prioritization) — and simplifies them for general users with no prior knowledge of these methods.
-**Pao!** is an iOS Zen-Casual Game designed as a quick mental escape for overwhelmed individuals, where players find relief by shooting projectiles to clear blocks at their own pace with new rows gently advancing only when the ball safely returns to the ground
+**Pao!** is an iOS Zen-Casual Game designed as a quick mental escape for overwhelmed individuals, where players find relief by shooting projectiles to clear blocks at their own pace with new rows gently advancing only when the ball safely returns to the ground.
 
 The app has two main screens:
 1. **Home Screen** — Calming visual background with CTA to play the game.
