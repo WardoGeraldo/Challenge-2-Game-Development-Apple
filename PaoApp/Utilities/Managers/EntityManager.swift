@@ -7,62 +7,86 @@
 
 import Foundation
 import GameplayKit
+import SpriteKit
+
+// MARK: - RandomManager
+
+// Manages all randomized game values with fair, streak-free distribution
+final class RandomManager {
+    static let shared = RandomManager()
+
+    // Shuffled deck ensures no HP-tier streaks — the hard block (10) can't
+    // appear again until all 9 other cards have been drawn.
+    private let blockTierDeck = GKShuffledDistribution(lowestValue: 1, highestValue: 10)
+
+    private init() {}
+
+    // Generates balanced block HP relative to current ammo count
+    func blockHP(ballCount: Int) -> Int {
+        let roll = blockTierDeck.nextInt()
+
+        let multiplier: Double
+        if roll <= 6 {
+            multiplier = 0.5       // 60%: easy — half ammo needed
+        } else if roll <= 9 {
+            multiplier = 1.0       // 30%: fair — full ammo needed
+        } else {
+            multiplier = 1.5       // 10%: hard — one and a half ammo needed
+        }
+
+        let base      = Double(ballCount) * multiplier
+        let variance  = Int.random(in: -2...2)
+        return max(1, Int(base.rounded()) + variance)
+    }
+
+    // Returns a random block type based on which types are unlocked at the current turn
+    func randomBlockType(turnNumber: Int) -> BlockType {
+        let roll = Int.random(in: 0...99)
+        if turnNumber >= 10 && roll < 10 { return .bomb }
+        if turnNumber >= 5  && roll < 28 { return .triangle(flipped: Bool.random()) }
+        if turnNumber >= 3  && roll < 20 { return .rover }
+        return .normal
+    }
+}
 
 final class EntityManager {
-    var entities = Set<GKEntity>()
-    let scene: SKScene
-
-    // TODO: Add component systems here
-    lazy var componentSystems: [GKComponentSystem] = {
-        //        let castleSystem = GKComponentSystem(componentClass: CastleComponent.self)
-        //        let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
-        //        return [castleSystem, moveSystem]
-
-        //        let collisionSystem =
-        return []
-    }()
-
-    var toRemove = Set<GKEntity>()
+    private(set) var entities: Set<GKEntity> = []
+    private weak var scene: SKScene?
 
     init(scene: SKScene) {
         self.scene = scene
     }
 
+    // Adds entity and its render node to the scene
     func add(_ entity: GKEntity) {
         entities.insert(entity)
-
-        if let skNode = entity.component(ofType: RenderComponent.self)?.node {
-            scene.addChild(skNode)
-        }
-
-        for componentSystem in componentSystems {
-            componentSystem.addComponent(foundIn: entity)
+        if let node = entity.component(ofType: RenderComponent.self)?.node {
+            scene?.addChild(node)
         }
     }
 
+    // Full removal: deregisters entity AND removes its node from the scene immediately
     func remove(_ entity: GKEntity) {
-        if let skNode = entity.component(ofType: RenderComponent.self)?.node {
-            skNode.removeFromParent()
-        }
-
         entities.remove(entity)
-
-        toRemove.insert(entity)
+        entity.component(ofType: RenderComponent.self)?.node.removeFromParent()
     }
 
-    func update(_ deltaTime: CFTimeInterval) {
-        for componentSystem in componentSystems {
-            componentSystem.update(deltaTime: deltaTime)
-        }
-
-        for currentRemove in toRemove {
-            for componentSystem in componentSystems {
-                componentSystem.removeComponent(foundIn: currentRemove)
-            }
-        }
-
-        toRemove.removeAll()
+    // Soft removal: deregisters entity from ECS tracking but leaves its node in the scene.
+    // Use this when the node has a self-removing animation already running —
+    // the animation's .removeFromParent() action handles the visual cleanup.
+    func untrack(_ entity: GKEntity) {
+        entities.remove(entity)
     }
 
-    // TODO: Add helper methods such as generate blocks here?
+    // Returns all entities that own a given component type
+    func entities<T: GKComponent>(with componentType: T.Type) -> [GKEntity] {
+        entities.filter { $0.component(ofType: T.self) != nil }
+    }
+
+    // Finds the entity whose render node matches the given SKNode
+    func entity(forNode node: SKNode) -> GKEntity? {
+        entities.first {
+            $0.component(ofType: RenderComponent.self)?.node === node
+        }
+    }
 }

@@ -8,45 +8,22 @@
 import SpriteKit
 import SwiftUI
 
+// Presents GameScene using the full screen bounds (including safe area).
+// GameScene internally reads safe area insets to position content correctly.
 struct GameView: View {
     var body: some View {
-        VStack(alignment: .center) {
-            Spacer()
-
-            GeometryReader { proxy in
-                let base =
-                    proxy.size.width < proxy.size.height
-                    ? proxy.size.width - 16 : proxy.size.height - 16
-                let cellWidth: CGFloat =
-                    proxy.size.width < proxy.size.height
-                    ? (base
-                        - base.truncatingRemainder(dividingBy: 7))
-                        / 7
-                    : (base
-                        - base.truncatingRemainder(dividingBy: 7))
-                        / 9
-                let width: CGFloat = cellWidth * 7
-                let height: CGFloat = cellWidth * 9
-
-                SpriteView(
-                    scene: GameScene(
-                        size: CGSize(
-                            width: width,
-                            height: height,
-                        )
-                    )
-                )
+        GeometryReader { geo in
+            SpriteView(scene: makeScene(size: geo.size))
                 .ignoresSafeArea()
-                .frame(
-                    width: width,
-                    height: height,
-                    //                    alignment: .center,
-                )
-                .padding(8)
-            }
-
-            Spacer()
         }
+        .ignoresSafeArea()
+    }
+
+    private func makeScene(size: CGSize) -> GameScene {
+        let scene = GameScene(size: size)
+        // resizeFill keeps the scene exactly equal to the view — no letterboxing
+        scene.scaleMode = .resizeFill
+        return scene
     }
 }
 
