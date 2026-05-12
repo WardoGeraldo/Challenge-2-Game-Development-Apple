@@ -6,8 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		920034FE2FB2D02900D54F8C /* AGREEMENT.md in Resources */ = {isa = PBXBuildFile; fileRef = 920034FC2FB2D02900D54F8C /* AGREEMENT.md */; };
+		920034FF2FB2D02900D54F8C /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 920034FD2FB2D02900D54F8C /* AGENTS.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		5BB67A892FA47048009A0804 /* PaoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PaoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		920034FC2FB2D02900D54F8C /* AGREEMENT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGREEMENT.md; sourceTree = "<group>"; };
+		920034FD2FB2D02900D54F8C /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +39,8 @@
 		5BB67A802FA47048009A0804 = {
 			isa = PBXGroup;
 			children = (
+				920034FD2FB2D02900D54F8C /* AGENTS.md */,
+				920034FC2FB2D02900D54F8C /* AGREEMENT.md */,
 				5BB67A8B2FA47048009A0804 /* PaoApp */,
 				5BB67A8A2FA47048009A0804 /* Products */,
 			);
@@ -109,6 +118,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				920034FE2FB2D02900D54F8C /* AGREEMENT.md in Resources */,
+				920034FF2FB2D02900D54F8C /* AGENTS.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
