@@ -19,3 +19,28 @@ class BlockNode: SKNode {
 }
 
 // TODO: Other block variants
+class BlockShapeNode: SKShapeNode {
+    /// Use scale to handle different size of screens
+    init(scale: CGFloat) {
+        super.init()
+
+        // TODO: Implement Block Shape Node attributes here
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+}
+
+class BlockPhysicsBody: SKPhysicsBody {
+    override init() {
+        super.init()
+
+        // TODO: Implement Block Physics Body attributes here
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
