@@ -51,45 +51,12 @@ final class GameScene: SKScene {
     }
 
     private func configureWalls() {
-        self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
-
-        self.physicsBody?.friction = 0.0  // No resistance when sliding
-        self.physicsBody?.restitution = 1.0  // Perfectly "bouncy" (1.0 = 100% energy kept)
-        //        self.physicsBody?.categoryBitMask = kWallCategory
-        //        self.physicsBody?.collisionBitMask = kBallCategory
-        self.physicsBody?.usesPreciseCollisionDetection = true
+        
     }
 
     private func configureBlock() {
-        let block = SKSpriteNode(
-            color: .systemBlue,
-            size: CGSize(width: 30, height: 30)
-        )
-        //        block.name = kBlockName
-
-        block.position = CGPoint(x: self.frame.midX, y: self.frame.midY)
-
-        // Setup Physics
-        block.physicsBody = SKPhysicsBody(rectangleOf: block.size)
-        block.physicsBody?.isDynamic = false  // Static so it doesn't fall or move when hit
-        //        block.physicsBody?.categoryBitMask = kBlockCategory
-        //        block.physicsBody?.contactTestBitMask = kBallCategory
-        block.physicsBody?.friction = 0.0
-        block.physicsBody?.restitution = 1.0
-
-        // Add the Label
-        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = "5"  // Set initial hit count
-        label.fontSize = 16
-        label.fontColor = .white
-        label.name = "hpLabel"
-
-        // Center the label inside the block
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-
-        block.addChild(label)
-        self.addChild(block)
+        let block = BlockEntity(health: 5)
+        entityManager.add(block)
     }
 }
 
