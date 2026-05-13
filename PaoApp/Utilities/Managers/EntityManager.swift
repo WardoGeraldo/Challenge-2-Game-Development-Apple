@@ -64,5 +64,18 @@ final class EntityManager {
         toRemove.removeAll()
     }
 
+    // TODO: Get Entity
+    // Returns all entities that own a given component type
+    func entities<T: GKComponent>(with componentType: T.Type) -> [GKEntity] {
+        entities.filter { $0.component(ofType: T.self) != nil }
+    }
+
+    // Finds the entity whose render node matches the given SKNode
+    func entity(forNode node: SKNode) -> GKEntity? {
+        entities.first {
+            $0.component(ofType: RenderComponent.self)?.node === node
+        }
+    }
+
     // TODO: Add helper methods such as generate blocks here?
 }
