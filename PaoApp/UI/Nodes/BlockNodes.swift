@@ -84,7 +84,6 @@ class BlockNode: SKNode {
         physicsBody = blockBody(size: CGSize(width: cell, height: cell))
         addChild(sprite)
         addChild(border)
-        addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
     }
 
     private func buildTriangle(hp: Int, ballCount: Int, cell: CGFloat, flipped: Bool) {
@@ -115,7 +114,6 @@ class BlockNode: SKNode {
         physicsBody = triBody
 
         addChild(shape)
-        addChild(hpLabel(hp: hp, fontSize: cell * 0.30))
     }
 
     private func buildBomb(hp: Int, ballCount: Int, cell: CGFloat) {
@@ -142,13 +140,12 @@ class BlockNode: SKNode {
         let icon = SKLabelNode(text: "💣")
         icon.fontSize              = cell * 0.38
         icon.verticalAlignmentMode = .center
-        icon.position              = CGPoint(x: 0, y: cell * 0.08)
+        icon.position              = CGPoint(x: 0, y: cell * 0.28)
 
         physicsBody = blockBody(size: CGSize(width: cell, height: cell))
         addChild(sprite)
         addChild(glow)
         addChild(icon)
-        addChild(hpLabel(hp: hp, fontSize: cell * 0.28, offsetY: -cell * 0.24))
     }
 
     private func buildRover(hp: Int, ballCount: Int, cell: CGFloat) {
@@ -171,13 +168,12 @@ class BlockNode: SKNode {
         arrow.fontSize              = cell * 0.30
         arrow.fontColor             = UIColor(white: 1, alpha: 0.65)
         arrow.verticalAlignmentMode = .center
-        arrow.position              = CGPoint(x: 0, y: cell * 0.08)
+        arrow.position              = CGPoint(x: 0, y: cell * 0.28)
 
         physicsBody = blockBody(size: CGSize(width: cell, height: cell))
         addChild(sprite)
         addChild(border)
         addChild(arrow)
-        addChild(hpLabel(hp: hp, fontSize: cell * 0.30, offsetY: -cell * 0.20))
     }
 
     // MARK: - Helpers
@@ -195,18 +191,6 @@ class BlockNode: SKNode {
         body.categoryBitMask    = PhysicsCategory.block
         body.collisionBitMask   = PhysicsCategory.ball
         body.contactTestBitMask = PhysicsCategory.ball
-    }
-
-    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
-        let lbl = SKLabelNode(fontNamed: GameConstants.fontName)
-        lbl.name                    = "hp"
-        lbl.text                    = "\(hp)"
-        lbl.fontSize                = fontSize
-        lbl.fontColor               = .white
-        lbl.verticalAlignmentMode   = .center
-        lbl.horizontalAlignmentMode = .center
-        lbl.position                = CGPoint(x: 0, y: offsetY)
-        return lbl
     }
 
     // Colour shows HP relative to current ball count

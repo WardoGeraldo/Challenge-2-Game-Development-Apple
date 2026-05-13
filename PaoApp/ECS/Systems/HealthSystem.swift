@@ -27,7 +27,6 @@ class HealthSystem {
             // Disable physics immediately to prevent duplicate contacts
             node.physicsBody = nil
         } else {
-            updateLabel(in: node, hp: health.health)
             updateColor(in: node, hp: health.health, ballCount: ballCount)
             node.run(.sequence([
                 .scale(to: 0.88, duration: 0.04),
@@ -36,13 +35,6 @@ class HealthSystem {
         }
 
         return dead
-    }
-
-    // Updates the HP counter label inside a block node
-    private func updateLabel(in node: SKNode, hp: Int) {
-        if let lbl = node.childNode(withName: "hp") as? SKLabelNode {
-            lbl.text = "\(hp)"
-        }
     }
 
     // Re-colours the block sprite based on remaining HP vs ammo

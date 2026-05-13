@@ -7,6 +7,7 @@
 
 import Foundation
 import GameplayKit
+import SpriteKit
 
 // MARK: - HealthComponent
 
@@ -16,36 +17,36 @@ class HealthComponent: GKComponent {
 
     var isDead: Bool { health <= 0 }
 
+    let label: LabelNode
+
     init(_ health: Int) {
         self.health    = health
         self.maxHealth = health
+        self.label     = LabelNode(name: "hp")
         super.init()
+        self.label.text      = String(health)
+        self.label.fontName  = GameConstants.fontName
+        self.label.fontSize  = 16
+        self.label.zPosition = 2
+    }
+
+    override func didAddToEntity() {
+        super.didAddToEntity()
+        if let renderComponent = entity?.component(ofType: RenderComponent.self) {
+            renderComponent.node.addChild(self.label)
+        }
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Decrements HP by 1; returns true if entity is now dead
     @discardableResult
     func hit() -> Bool {
         health = max(0, health - 1)
+        label.text = String(health)
         return isDead
     }
 }
 
-// MARK: - BlockTypeComponent
 
-// Stores the block's behavioural type (defined in BlockNodes.swift)
-class BlockTypeComponent: GKComponent {
-    let blockType: BlockType
-
-    init(_ type: BlockType) {
-        self.blockType = type
-        super.init()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-}
