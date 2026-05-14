@@ -1,35 +1,39 @@
 //
-//  GameIdleState.swift
+//  GameFlyingState.swift
 //  PaoApp
 //
-//  Created by Saujana Shafi on 10/05/26.
+//  Created by Saujana Shafi on 12/05/26.
 //
 
 import Foundation
 import GameplayKit
 
-class GameIdleState: GameState {
+class GameFlyingState: GameState {
     // MARK: Properties
 
     // MARK: Initialization
 
     // MARK: GKState overrides
-    
+
     override func didEnter(from previousState: GKState?) {
         super.didEnter(from: previousState)
-        
-        // TODO: Do we need to do anything here?
+
+        // TODO:
     }
-    
+
     override func willExit(to nextState: GKState) {
         super.willExit(to: nextState)
 
-        // TODO: Do we need to do anything here?
+        // TODO: Implement block step down mechanism
+
+        // TODO: Implement player move to ball touchdown location
+
+        // TODO: Implement trigger block spawn
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
         // This state can only transition to the serve and refilling states.
-        return stateClass is GameAimState.Type
+        return stateClass is GameTurnEndState.Type
     }
 
     // MARK: Methods

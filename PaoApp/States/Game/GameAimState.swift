@@ -1,35 +1,36 @@
 //
-//  GameIdleState.swift
+//  GameAimState.swift
 //  PaoApp
 //
-//  Created by Saujana Shafi on 10/05/26.
+//  Created by Saujana Shafi on 12/05/26.
 //
 
 import Foundation
 import GameplayKit
 
-class GameIdleState: GameState {
+class GameAimState: GameState {
     // MARK: Properties
 
     // MARK: Initialization
 
     // MARK: GKState overrides
-    
+
     override func didEnter(from previousState: GKState?) {
         super.didEnter(from: previousState)
-        
-        // TODO: Do we need to do anything here?
+
+        // TODO: Implement draw aiming line
     }
-    
+
     override func willExit(to nextState: GKState) {
         super.willExit(to: nextState)
 
-        // TODO: Do we need to do anything here?
+        // TODO: Implement remove aiming line
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
         // This state can only transition to the serve and refilling states.
-        return stateClass is GameAimState.Type
+        return stateClass is GameFlyingState.Type
+            || stateClass is GameIdleState.Type
     }
 
     // MARK: Methods

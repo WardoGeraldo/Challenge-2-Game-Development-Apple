@@ -11,6 +11,7 @@ import SwiftUI
 
 final class GameScene: SKScene {
     var entityManager: EntityManager!
+    var stateMachine: GKStateMachine!
 
     private var score: Int = 0
 
@@ -32,6 +33,15 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         entityManager = EntityManager(scene: self)
+
+        stateMachine = GKStateMachine(states: [
+            GameStartState(entityManager),
+            GameIdleState(entityManager),
+            GameAimState(entityManager),
+            GameFlyingState(entityManager),
+            GameTurnEndState(entityManager),
+            GameOverState(entityManager),
+        ])
 
         configure()
 
