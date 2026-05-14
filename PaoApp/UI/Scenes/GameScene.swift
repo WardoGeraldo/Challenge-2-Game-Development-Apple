@@ -1,6 +1,6 @@
 //
 //  GameScene.swift
-//  Game101
+//  PaoApp
 //
 //  Created by Saujana Shafi on 27/04/26.
 //
@@ -22,6 +22,26 @@ final class GameScene: SKScene {
     private var shooterNode: SKShapeNode!
     private var blockNode: SKShapeNode!
 
+    // MARK: - State Machine
+    // TODO: Declare a GKStateMachine property here.
+    // private var stateMachine: GKStateMachine!
+
+    // MARK: - Volley tracking
+    // TODO: Add volley-tracking properties needed by GameFlyingState:
+    // var pendingShotAngle: CGFloat = .pi / 2
+    // private var volleyTotal: Int = 0
+    // private var volleyLanded: Int = 0
+    // private var activeBalls: [SKNode] = []
+
+    // MARK: - Aim line
+    // TODO: Add an array to hold aim-line dot nodes used by GameAimingState:
+    // private var aimLineNodes: [SKNode] = []
+
+    // MARK: - Shooter origin
+    // TODO: Store the shooter's x/y position so states can reference it:
+    // private var shootX: CGFloat = 0
+    // private var shootY: CGFloat = 0
+
     override init(size: CGSize) {
         super.init(size: size)
     }
@@ -38,6 +58,21 @@ final class GameScene: SKScene {
         configureWalls()
 
         configureBlock()
+
+        // TODO: Initialize the state machine with all game states and enter GameStartState:
+        // stateMachine = GKStateMachine(states: [
+        //     GameStartState(context: self),
+        //     GameIdleState(context: self),
+        //     GameAimingState(context: self),
+        //     GameFlyingState(context: self),
+        //     GameTurnEndState(context: self),
+        //     GameOverState(context: self)
+        // ])
+        // stateMachine.enter(GameStartState.self)
+
+        // TODO: Register a UIPanGestureRecognizer and forward its events to the current state:
+        // let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        // view.addGestureRecognizer(pan)
     }
 
     func configure() {
@@ -91,9 +126,51 @@ final class GameScene: SKScene {
         block.addChild(label)
         self.addChild(block)
     }
+
+    override func update(_ currentTime: TimeInterval) {
+        let dt: TimeInterval = 1.0 / 60.0
+        entityManager.update(dt)
+
+        // TODO: Forward delta time to the state machine each frame:
+        // stateMachine.update(deltaTime: dt)
+
+        // TODO: Inside GameFlyingState.update(), detect balls that have returned to shootY
+        // and call context.landBall(_:) (or equivalent) to count them as landed.
+        // When volleyLanded == volleyTotal the state should transition to GameTurnEndState.
+    }
 }
 
-// MARK: Touch Events
+// MARK: - Pan Gesture
+extension GameScene {
+    // TODO: Implement handlePan(_:) to bridge UIKit gesture events into the state machine.
+    // @objc private func handlePan(_ g: UIPanGestureRecognizer) {
+    //     let raw   = g.translation(in: view)
+    //     let angle = clampAngle(dx: raw.x, dy: -raw.y)
+    //     switch g.state {
+    //     case .began:
+    //         if stateMachine.currentState is GameIdleState {
+    //             stateMachine.enter(GameAimingState.self)
+    //         }
+    //         (stateMachine.currentState as? GameAimingState)?.updateAim(angle: angle)
+    //     case .changed:
+    //         (stateMachine.currentState as? GameAimingState)?.updateAim(angle: angle)
+    //     case .ended, .cancelled:
+    //         (stateMachine.currentState as? GameAimingState)?.commitShot(angle: angle)
+    //     default: break
+    //     }
+    // }
+
+    // TODO: Implement clampAngle(dx:dy:) to keep the shot angle in the upper hemisphere (≥ 8° from horizontal):
+    // private func clampAngle(dx: CGFloat, dy: CGFloat) -> CGFloat {
+    //     let min8 = CGFloat(8) * .pi / 180
+    //     var a    = atan2(dy, dx)
+    //     if dy <= 0 { a = dx >= 0 ? min8 : .pi - min8 }
+    //     else       { a = Swift.min(Swift.max(a, min8), .pi - min8) }
+    //     return a
+    // }
+}
+
+// MARK: - Touch Events
 extension GameScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if isGameOver {
@@ -107,6 +184,12 @@ extension GameScene {
         if let point = touches.first?.location(in: self) {
             orientShooter(to: point)
         }
+
+        // TODO: When the state machine is in GameOverState, delegate the tap to GameOverState.restart()
+        // instead of directly re-creating GameScene:
+        // if let overState = stateMachine.currentState as? GameOverState {
+        //     overState.restart()
+        // }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -122,10 +205,17 @@ extension GameScene {
     }
 }
 
-//MARK: Collision
+// MARK: - Collision
 extension GameScene: SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
         contactQueue.append(contact)
+
+        // TODO: Route contact events to CollisionSystem via EntityManager instead of the raw queue.
+        // CollisionSystem should:
+        // 1. Identify ball↔block vs ball↔pickup contacts using categoryBitMask.
+        // 2. Enqueue a CollisionEvent for processing in update().
+        // 3. In update(), dequeue events and call HealthSystem.hit(entity:) for blocks
+        //    or handle pickup collection for ItemBallEntity.
     }
 
     func handle(_ contact: SKPhysicsContact) {
@@ -162,12 +252,12 @@ extension GameScene: SKPhysicsContactDelegate {
     }
 }
 
-// MARK: Gyro
+// MARK: - Gyro
 extension GameScene {
 
 }
 
-// MARK: Shooter
+// MARK: - Shooter
 extension GameScene {
     func orientShooter(to point: CGPoint) {
         let ship = childNode(withName: "shooter")
@@ -227,3 +317,58 @@ extension GameScene {
         }
     }
 }
+
+// MARK: - GameStateContext
+// TODO: Make GameScene conform to GameStateContext and implement each required method.
+// The protocol drives all state transitions; every method below should be a real implementation
+// once the ECS / UI teams complete their respective pieces.
+//
+// extension GameScene: GameStateContext {
+//
+//     var shooterPosition: CGPoint {
+//         // Return the fixed shooter origin set in setupInitialGame().
+//         CGPoint(x: shootX, y: shootY)
+//     }
+//
+//     var isVolleyComplete: Bool {
+//         // True when every launched ball has landed.
+//         volleyTotal > 0 && volleyLanded >= volleyTotal
+//     }
+//
+//     func setupInitialGame() {
+//         // Reset volley counters and physics border, then set shooter position.
+//         // TODO: [ECS Team] Spawn the first 3 block rows via EntityManager.
+//     }
+//
+//     func showAimLine(from origin: CGPoint, angle: CGFloat) {
+//         // Draw a dotted preview line from origin in the direction of angle.
+//         // Store dot nodes in aimLineNodes so they can be removed in hideAimLine().
+//     }
+//
+//     func hideAimLine() {
+//         // Remove all aimLineNodes from the scene and clear the array.
+//     }
+//
+//     func fireVolley() {
+//         // Set volleyTotal to the player's ball count, reset volleyLanded, then
+//         // spawn each ball with a staggered delay (e.g. 0.10 s per ball).
+//         // TODO: [ECS Team] Replace hardcoded count with PlayerEntity.ballCount.
+//     }
+//
+//     func advanceBoard() -> Bool {
+//         // Move every BlockEntity / ItemBallEntity down one row.
+//         // Return true (game over) if any block reaches the shooter row.
+//         // Then spawn a fresh row at the top.
+//         // TODO: [ECS Team] Implement using EntityManager.entities.
+//         return false
+//     }
+//
+//     func showGameOverScreen() {
+//         // TODO: [UI Team] Replace placeholder SKLabelNodes with a proper Game Over overlay.
+//     }
+//
+//     func resetGame() {
+//         // Remove all game-over labels, balls, and aim-line dots from the scene.
+//         // TODO: [ECS Team] Remove all BlockEntity / ItemBallEntity via EntityManager.
+//     }
+// }

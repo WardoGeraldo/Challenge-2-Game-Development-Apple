@@ -12,15 +12,11 @@ final class EntityManager {
     var entities = Set<GKEntity>()
     let scene: SKScene
 
-    // TODO: Add component systems here
-    lazy var componentSystems: [GKComponentSystem] = {
-        //        let castleSystem = GKComponentSystem(componentClass: CastleComponent.self)
-        //        let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
-        //        return [castleSystem, moveSystem]
-
-        //        let collisionSystem =
-        return []
-    }()
+    // TODO: [ECS Team] Register component systems here once systems are implemented.
+    // Example:
+    //   let healthSystem = GKComponentSystem(componentClass: HealthComponent.self)
+    //   return [healthSystem]
+    lazy var componentSystems: [GKComponentSystem] = { return [] }()
 
     var toRemove = Set<GKEntity>()
 
@@ -46,9 +42,29 @@ final class EntityManager {
         }
 
         entities.remove(entity)
-
         toRemove.insert(entity)
     }
+
+    // TODO: [ECS Team] Add untrack(_:) — removes from the ECS registry without calling removeFromParent().
+    // This is needed when a death animation still needs to play after the entity is "dead":
+    //   func untrack(_ entity: GKEntity) {
+    //       entities.remove(entity)
+    //       toRemove.insert(entity)
+    //   }
+
+    // TODO: [ECS Team] Add entity(forNode:) — reverse lookup from SKNode to GKEntity.
+    // Used by CollisionSystem and HealthSystem to find which entity was hit:
+    //   func entity(forNode node: SKNode) -> GKEntity? {
+    //       return entities.first {
+    //           $0.component(ofType: RenderComponent.self)?.node === node
+    //       }
+    //   }
+
+    // TODO: [ECS Team] Add entities(with:) — query all entities that have a given component type.
+    // Used by GameScene.advanceBoard() to loop over blocks and pickups:
+    //   func entities<T: GKComponent>(with componentClass: T.Type) -> [GKEntity] {
+    //       return entities.filter { $0.component(ofType: componentClass) != nil }
+    //   }
 
     func update(_ deltaTime: CFTimeInterval) {
         for componentSystem in componentSystems {
@@ -63,6 +79,4 @@ final class EntityManager {
 
         toRemove.removeAll()
     }
-
-    // TODO: Add helper methods such as generate blocks here?
 }
