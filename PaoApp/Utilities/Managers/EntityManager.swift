@@ -8,18 +8,44 @@
 import Foundation
 import GameplayKit
 
+// Type-erased wrapper so we can store heterogeneous GKComponentSystem<T>
+protocol AnyComponentSystem {
+    func add(foundIn entity: GKEntity)
+    func remove(foundIn entity: GKEntity)
+    func update(deltaTime: TimeInterval)
+}
+
+private struct ComponentSystemBox<T: GKComponent>: AnyComponentSystem {
+    let system: GKComponentSystem<T>
+
+    func add(foundIn entity: GKEntity) {
+        system.addComponent(foundIn: entity)
+    }
+
+    func remove(foundIn entity: GKEntity) {
+        system.removeComponent(foundIn: entity)
+    }
+
+    func update(deltaTime: TimeInterval) {
+        system.update(deltaTime: deltaTime)
+    }
+}
+
 final class EntityManager {
     var entities = Set<GKEntity>()
     let scene: SKScene
 
     // TODO: Add component systems here
-    lazy var componentSystems: [GKComponentSystem] = {
-        //        let castleSystem = GKComponentSystem(componentClass: CastleComponent.self)
-        //        let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
-        //        return [castleSystem, moveSystem]
+    lazy var componentSystems: [AnyComponentSystem] = {
+        let collisionSystem = CollisionSystem(
+            entityManager: self
+        )
+        // Example: let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
+        // Then include: ComponentSystemBox(system: moveSystem)
 
-        //        let collisionSystem =
-        return []
+        return [
+            ComponentSystemBox(system: collisionSystem),
+        ]
     }()
 
     var toRemove = Set<GKEntity>()
@@ -36,7 +62,7 @@ final class EntityManager {
         }
 
         for componentSystem in componentSystems {
-            componentSystem.addComponent(foundIn: entity)
+            componentSystem.add(foundIn: entity)
         }
     }
 
@@ -57,7 +83,7 @@ final class EntityManager {
 
         for currentRemove in toRemove {
             for componentSystem in componentSystems {
-                componentSystem.removeComponent(foundIn: currentRemove)
+                componentSystem.remove(foundIn: currentRemove)
             }
         }
 

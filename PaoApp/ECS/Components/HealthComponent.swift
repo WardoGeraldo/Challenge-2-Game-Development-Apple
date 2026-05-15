@@ -19,6 +19,10 @@ class HealthComponent: GKComponent {
             as? SKNode
     }
 
+    func hit(demage: Int = 1) {
+        self.health -= demage
+    }
+
     init(
         _ health: Int,
     ) {
@@ -44,5 +48,4 @@ class HealthComponent: GKComponent {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
 }
