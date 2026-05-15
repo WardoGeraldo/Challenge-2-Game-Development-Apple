@@ -12,6 +12,9 @@ import SwiftUI
 final class GameScene: SKScene {
     var entityManager: EntityManager!
 
+    // Update time
+    var lastUpdateTimeInterval: TimeInterval = 0
+
     private var score: Int = 0
 
     private var isGameOver: Bool = false
@@ -58,6 +61,13 @@ final class GameScene: SKScene {
         let block = BlockEntity(health: 5)
         entityManager.add(block)
     }
+    
+    override func update(_ currentTime: TimeInterval) {
+        let deltaTime = currentTime - lastUpdateTimeInterval
+        lastUpdateTimeInterval = currentTime
+
+        entityManager.update(deltaTime)
+    }
 }
 
 // MARK: Touch Events
@@ -92,40 +102,27 @@ extension GameScene {
 //MARK: Collision
 extension GameScene: SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
-        contactQueue.append(contact)
-    }
+        guard
+            let nodeA = contact.bodyA.node,
+            let nodeB = contact.bodyB.node,
+            let entityA = entityManager.entity(forNode: nodeA),
+            let entityB = entityManager.entity(forNode: nodeB)
+        else { return }
 
-    func handle(_ contact: SKPhysicsContact) {
-        if contact.bodyA.node?.parent == nil
-            || contact.bodyB.node?.parent == nil
-        {
+        guard
+            let physicsComponentA = entityA.component(
+                ofType: PhysicsComponent.self
+            )
+        else {
             return
         }
 
-        let nodeNames = [contact.bodyA.node!.name!, contact.bodyB.node!.name!]
-
-        print("Something Hit")
-
-        // Block Hit
-        //        if nodeNames.contains(kBlockName) && nodeNames.contains(kBallName) {
-        //            print("Block Hit")
-        //
-        //            let blockNode =
-        //                contact.bodyA.node?.name == kBlockName
-        //                ? contact.bodyA.node : contact.bodyB.node
-        //            if let block = blockNode {
-        //                handleBlockHit(block)
-        //            }
-        //        }
-    }
-
-    func processContacts(forUpdate currentTime: CFTimeInterval) {
-        for contact in contactQueue {
-            handle(contact)
-            if let index = contactQueue.firstIndex(of: contact) {
-                contactQueue.remove(at: index)
-            }
-        }
+        physicsComponentA.contactQueue.append(
+            PhysicsContact(
+                entityA: entityA,
+                entityB: entityB,
+            )
+        )
     }
 }
 
