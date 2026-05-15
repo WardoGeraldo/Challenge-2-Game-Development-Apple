@@ -65,26 +65,113 @@ class BlockNode: SKNode {
 
     // MARK: - Block Builders
 
+//    private func buildNormal(hp: Int, ballCount: Int, cell: CGFloat) {
+//        let sprite = SKSpriteNode(
+//            color: BlockNode.blockFill(hp: hp, ballCount: ballCount),
+//            size: CGSize(width: cell, height: cell)
+//        )
+//        sprite.name = "blockSprite"
+//
+//        let border = SKShapeNode(
+//            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
+//            cornerRadius: 7
+//        )
+//        border.fillColor   = .clear
+//        border.strokeColor = UIColor(white: 1, alpha: 0.12)
+//        border.lineWidth   = 1
+//        border.zPosition   = 1
+//
+//        physicsBody = blockBody(size: CGSize(width: cell, height: cell))
+//        addChild(sprite)
+//        addChild(border)
+//        addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
+//    }
+    
     private func buildNormal(hp: Int, ballCount: Int, cell: CGFloat) {
-        let sprite = SKSpriteNode(
-            color: BlockNode.blockFill(hp: hp, ballCount: ballCount),
-            size: CGSize(width: cell, height: cell)
+
+        // Main sprite dari asset
+        let sprite = SKSpriteNode(imageNamed: "green")
+
+        sprite.size = CGSize(
+            width: cell,
+            height: cell
         )
+
         sprite.name = "blockSprite"
+        sprite.colorBlendFactor = 0
+        sprite.color = .white
 
-        let border = SKShapeNode(
-            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
-            cornerRadius: 7
+        // Sedikit rounded feel
+        sprite.texture?.filteringMode = .nearest
+
+        // Shadow / glow tipis
+        let shadow = SKShapeNode(
+            rect: CGRect(
+                x: -cell/2,
+                y: -cell/2,
+                width: cell,
+                height: cell
+            ),
+            cornerRadius: 10
         )
-        border.fillColor   = .clear
-        border.strokeColor = UIColor(white: 1, alpha: 0.12)
-        border.lineWidth   = 1
-        border.zPosition   = 1
 
-        physicsBody = blockBody(size: CGSize(width: cell, height: cell))
+        shadow.fillColor = .clear
+
+        shadow.strokeColor = UIColor(
+            white: 1,
+            alpha: 0.08
+        )
+
+        shadow.lineWidth = 1.5
+
+        shadow.zPosition = -1
+
+        // Physics
+        physicsBody = blockBody(
+            size: CGSize(
+                width: cell,
+                height: cell
+            )
+        )
+
+        addChild(shadow)
         addChild(sprite)
-        addChild(border)
-        addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
+
+        // HP Label
+        let hpNode = hpLabel(
+            hp: hp,
+            fontSize: cell * 0.34
+        )
+
+        hpNode.zPosition = 3
+
+        addChild(hpNode)
+
+        //
+        // Idle floating animation
+        //
+
+        let float = SKAction.sequence([
+
+            .moveBy(
+                x: 0,
+                y: 3,
+                duration: 1.2
+            ),
+
+            .moveBy(
+                x: 0,
+                y: -3,
+                duration: 1.2
+            )
+        ])
+
+        float.timingMode = .easeInEaseOut
+
+        sprite.run(
+            .repeatForever(float),
+            withKey: "idleFloat"
+        )
     }
 
     private func buildTriangle(hp: Int, ballCount: Int, cell: CGFloat, flipped: Bool) {
@@ -197,15 +284,38 @@ class BlockNode: SKNode {
         body.contactTestBitMask = PhysicsCategory.ball
     }
 
+//    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
+//        let lbl = SKLabelNode(fontNamed: GameConstants.fontName)
+//        lbl.name                    = "hp"
+//        lbl.text                    = "\(hp)"
+//        lbl.fontSize                = fontSize
+//        lbl.fontColor               = .white
+//        lbl.verticalAlignmentMode   = .center
+//        lbl.horizontalAlignmentMode = .center
+//        lbl.position                = CGPoint(x: 0, y: offsetY)
+//        return lbl
+//    }
+    
+    
+    private func cellTopOffset(fontSize: CGFloat) -> CGFloat {
+        return fontSize * 0.9
+    }
+    
     private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
-        let lbl = SKLabelNode(fontNamed: GameConstants.fontName)
+
+        let lbl = SKLabelNode(fontNamed: "MelonPop-Regular")
+
         lbl.name                    = "hp"
         lbl.text                    = "\(hp)"
         lbl.fontSize                = fontSize
         lbl.fontColor               = .white
+
         lbl.verticalAlignmentMode   = .center
         lbl.horizontalAlignmentMode = .center
-        lbl.position                = CGPoint(x: 0, y: offsetY)
+
+        // posisi angka di atas block
+        lbl.position = CGPoint(x: 0, y: fontSize * 0.9 + offsetY)
+
         return lbl
     }
 

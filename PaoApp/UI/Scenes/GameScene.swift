@@ -32,7 +32,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Volley tracking
     private var volleyTotal:  Int      = 0
     private var volleyLanded: Int      = 0
-    private var firstLandX:   CGFloat? = nil
+//    private var firstLandX:   CGFloat? = nil
+    private var landedPositions: [CGFloat] = []
     private var shotAngle:    CGFloat  = .pi / 2
     private var lastDT:       TimeInterval = 0
 
@@ -54,10 +55,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var playerEntity: PlayerEntity?
 
     // MARK: - HUD Nodes
-    private var countLabel:  SKLabelNode!
+    private var countLabel: SKLabelNode!
+    private var ammoContainer = SKNode()
     private var portalLabel: SKLabelNode!
     private var turnLabel:   SKLabelNode!
     private var nextMarker:  SKShapeNode?
+    private var aimDots: [SKShapeNode] = []
+    private var aimArrow: SKShapeNode?
+    private var landedBallNodes: [SKSpriteNode] = []
+    private var isVolleyActive = false
+
+    // MARK: - AssetNode
 
     // MARK: - didMove
     override func didMove(to view: SKView) {
@@ -85,6 +93,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         placeShooterMarker()
         spawnInitialRows()
         addPanGesture(to: view)
+        
+        for family in UIFont.familyNames.sorted() {
+
+            print("FAMILY:", family)
+
+            for name in UIFont.fontNames(forFamilyName: family) {
+
+                print(" FONT:", name)
+            }
+        }
     }
 
     // MARK: - Layout (screen-adaptive)
@@ -208,62 +226,421 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - HUD
 
+//    private func buildHUD() {
+//        let iconSize = GameConstants.ballRadius * 2
+//        let iconX    = gridOrigin.x + gap + iconSize / 2 + 2
+//
+//        // Ball icon indicator — same bakpao asset as the thrown ball
+//        let ballIcon = SKSpriteNode(imageNamed: "bakpaoAmmo")
+//        ballIcon.size     = CGSize(width: iconSize, height: iconSize)
+//        ballIcon.position = CGPoint(x: iconX, y: shootY)
+//        ballIcon.zPosition = 10
+//        ballIcon.name     = "ui"
+//        addChild(ballIcon)
+//
+//        // Ball count label
+//        countLabel = SKLabelNode(fontNamed: GameConstants.fontName)
+//        countLabel.fontSize                = 16
+//        countLabel.fontColor               = UIColor(white: 0.9, alpha: 1)
+//        countLabel.text                    = "×\(ballCount)"
+//        countLabel.horizontalAlignmentMode = .left
+//        countLabel.verticalAlignmentMode   = .center
+//        countLabel.position                = CGPoint(x: iconX + iconSize / 2 + 6, y: shootY)
+//        countLabel.zPosition               = 10
+//        addChild(countLabel)
+//
+//        // Portal charge indicator (hidden until collected)
+//        portalLabel = SKLabelNode(fontNamed: GameConstants.fontName)
+//        portalLabel.fontSize                = 14
+//        portalLabel.fontColor               = UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1)
+//        portalLabel.text                    = ""
+//        portalLabel.horizontalAlignmentMode = .left
+//        portalLabel.verticalAlignmentMode   = .center
+//        portalLabel.position                = CGPoint(x: iconX + iconSize / 2 + 52, y: shootY)
+//        portalLabel.zPosition               = 10
+//        addChild(portalLabel)
+//
+//        // Turn counter
+//        turnLabel = SKLabelNode(fontNamed: GameConstants.fontName)
+//        turnLabel.fontSize                = 13
+//        turnLabel.fontColor               = UIColor(white: 0.5, alpha: 1)
+//        turnLabel.text                    = "TURN 1"
+//        turnLabel.horizontalAlignmentMode = .right
+//        turnLabel.verticalAlignmentMode   = .center
+//        turnLabel.position                = CGPoint(x: gridOrigin.x + gridW - 6, y: shootY)
+//        turnLabel.zPosition               = 10
+//        addChild(turnLabel)
+//    }
+
     private func buildHUD() {
-        let iconSize = GameConstants.ballRadius * 2
-        let iconX    = gridOrigin.x + gap + iconSize / 2 + 2
 
-        // Ball icon indicator — same bakpao asset as the thrown ball
-        let ballIcon = SKSpriteNode(imageNamed: "bakpaoAmmo")
-        ballIcon.size     = CGSize(width: iconSize, height: iconSize)
-        ballIcon.position = CGPoint(x: iconX, y: shootY)
-        ballIcon.zPosition = 10
-        ballIcon.name     = "ui"
-        addChild(ballIcon)
+        ammoContainer.zPosition = 10
+        ammoContainer.name = "ui"
+        addChild(ammoContainer)
 
-        // Ball count label
+        ammoContainer.position = CGPoint(
+            x: shootX,
+            y: shootY - 4
+        )
+
+        // Label jumlah bakpao
         countLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-        countLabel.fontSize                = 16
-        countLabel.fontColor               = UIColor(white: 0.9, alpha: 1)
-        countLabel.text                    = "×\(ballCount)"
+        countLabel.fontSize = 18
+        countLabel.fontColor = UIColor.white
         countLabel.horizontalAlignmentMode = .left
-        countLabel.verticalAlignmentMode   = .center
-        countLabel.position                = CGPoint(x: iconX + iconSize / 2 + 6, y: shootY)
-        countLabel.zPosition               = 10
+        countLabel.verticalAlignmentMode = .center
+        countLabel.zPosition = 11
         addChild(countLabel)
 
-        // Portal charge indicator (hidden until collected)
+        // Portal label
         portalLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-        portalLabel.fontSize                = 14
-        portalLabel.fontColor               = UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1)
-        portalLabel.text                    = ""
+        portalLabel.fontSize = 14
+        portalLabel.fontColor = UIColor(
+            red: 0.72,
+            green: 0.50,
+            blue: 1.0,
+            alpha: 1
+        )
+
         portalLabel.horizontalAlignmentMode = .left
-        portalLabel.verticalAlignmentMode   = .center
-        portalLabel.position                = CGPoint(x: iconX + iconSize / 2 + 52, y: shootY)
-        portalLabel.zPosition               = 10
+        portalLabel.verticalAlignmentMode = .center
+        portalLabel.position = CGPoint(
+            x: gridOrigin.x + 160,
+            y: shootY
+        )
+
+        portalLabel.zPosition = 10
         addChild(portalLabel)
 
-        // Turn counter
+        // Turn label
         turnLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-        turnLabel.fontSize                = 13
-        turnLabel.fontColor               = UIColor(white: 0.5, alpha: 1)
-        turnLabel.text                    = "TURN 1"
+        turnLabel.fontSize = 13
+        turnLabel.fontColor = UIColor(white: 0.5, alpha: 1)
+
         turnLabel.horizontalAlignmentMode = .right
-        turnLabel.verticalAlignmentMode   = .center
-        turnLabel.position                = CGPoint(x: gridOrigin.x + gridW - 6, y: shootY)
-        turnLabel.zPosition               = 10
+        turnLabel.verticalAlignmentMode = .center
+
+        turnLabel.position = CGPoint(
+            x: gridOrigin.x + gridW - 6,
+            y: shootY
+        )
+
+        turnLabel.zPosition = 10
         addChild(turnLabel)
-    }
 
+        refreshHUD()
+    }
+//    private func refreshHUD() {
+//        countLabel.text = "×\(ballCount)"
+//        countLabel.run(.sequence([
+//            .scale(to: 1.5, duration: 0.07),
+//            .scale(to: 1.0, duration: 0.10)
+//        ]))
+//        turnLabel.text  = "TURN \(turnNumber + 1)"
+//        portalLabel.text = portalCharges > 0 ? "⬡ ×\(portalCharges)" : ""
+//    }
+    
     private func refreshHUD() {
-        countLabel.text = "×\(ballCount)"
-        countLabel.run(.sequence([
-            .scale(to: 1.5, duration: 0.07),
-            .scale(to: 1.0, duration: 0.10)
-        ]))
-        turnLabel.text  = "TURN \(turnNumber + 1)"
-        portalLabel.text = portalCharges > 0 ? "⬡ ×\(portalCharges)" : ""
-    }
 
+        updateAmmoIcons()
+
+        ammoContainer.run(.sequence([
+            .scale(to: 1.12, duration: 0.06),
+            .scale(to: 1.0, duration: 0.08)
+        ]))
+
+        turnLabel.text = "TURN \(turnNumber + 1)"
+
+        portalLabel.text = portalCharges > 0
+            ? "⬡ ×\(portalCharges)"
+            : ""
+    }
+    
+//    private func updateAmmoIcons() {
+//
+//        ammoContainer.removeAllChildren()
+//
+//        let maxVisible = 5
+//        let visibleCount = min(ballCount, maxVisible)
+//
+//        let size: CGFloat = GameConstants.ballRadius * 1.8
+//        let spacing: CGFloat = size * 0.72
+//
+//        for i in 0..<visibleCount {
+//
+//            let sprite = SKSpriteNode(imageNamed: "bakpaoAmmo")
+//
+//            sprite.size = CGSize(width: size, height: size)
+//
+//            sprite.position = CGPoint(
+//                x: CGFloat(i) * spacing,
+//                y: 0
+//            )
+//
+//            sprite.zRotation = CGFloat.random(in: -0.15...0.15)
+//
+//            ammoContainer.addChild(sprite)
+//        }
+//
+//        // Posisi text jumlah
+//        countLabel.text = "x\(ballCount)"
+//
+//        countLabel.position = CGPoint(
+//            x: CGFloat(visibleCount) * spacing + 8,
+//            y: 0
+//        )
+//    }
+    private func updateAmmoIcons() {
+
+        ammoContainer.removeAllChildren()
+
+        // Kalau lagi volley → jangan tampilkan ammo bawah
+        if isVolleyActive {
+            countLabel.text = ""
+            return
+        }
+
+        let size: CGFloat = GameConstants.ballRadius * 1.75
+
+        let maxWidth: CGFloat = 120
+
+        let spacing: CGFloat
+
+        if ballCount <= 5 {
+            spacing = size * 0.72
+        } else if ballCount <= 10 {
+            spacing = size * 0.48
+        } else {
+            spacing = size * 0.28
+        }
+
+        let totalWidth = CGFloat(max(ballCount - 1, 0)) * spacing
+
+        let clampedWidth = min(totalWidth, maxWidth)
+
+        let finalSpacing: CGFloat
+
+        if ballCount > 1 {
+            finalSpacing = min(
+                spacing,
+                clampedWidth / CGFloat(ballCount - 1)
+            )
+        } else {
+            finalSpacing = spacing
+        }
+
+        let startX = CGFloat(0)
+
+        for i in 0..<ballCount {
+
+            let sprite = SKSpriteNode(imageNamed: "bakpaoAmmo")
+
+            sprite.size = CGSize(width: size, height: size)
+
+            sprite.position = CGPoint(
+                x: startX + CGFloat(i) * finalSpacing,
+                y: CGFloat.random(in: -2...2)
+            )
+
+            sprite.zRotation = CGFloat.random(in: -0.18...0.18)
+
+            sprite.zPosition = CGFloat(i)
+
+            let scale = CGFloat.random(in: 0.94...1.04)
+            sprite.setScale(scale)
+
+            ammoContainer.addChild(sprite)
+
+            let delay = Double(i) * 0.05
+
+            let moveUp = SKAction.moveBy(
+                x: 0,
+                y: CGFloat.random(in: 2...5),
+                duration: Double.random(in: 0.6...1.0)
+            )
+
+            moveUp.timingMode = .easeInEaseOut
+
+            let moveDown = moveUp.reversed()
+
+            let floatAnim = SKAction.sequence([
+                .wait(forDuration: delay),
+                .sequence([moveUp, moveDown])
+            ])
+
+            sprite.run(.repeatForever(floatAnim))
+        }
+
+        countLabel.text = ""
+    }
+    
+    private func animateAmmoGain(
+        from worldPosition: CGPoint,
+        oldCount: Int,
+        newCount: Int
+    ) {
+
+        // Ukuran pickup asli
+        let pickupSize = cell * 0.82
+
+        // Ukuran HUD
+        let hudSize = GameConstants.ballRadius * 1.75
+
+        // Spawn di scene langsung
+        let flying = SKSpriteNode(imageNamed: "bakpaoAmmo")
+
+        flying.size = CGSize(
+            width: pickupSize,
+            height: pickupSize
+        )
+
+        flying.position = worldPosition
+        flying.zPosition = 999
+
+        addChild(flying)
+
+        // ===== TARGET HUD POSITION =====
+
+        let spacing: CGFloat
+
+        if newCount <= 5 {
+            spacing = hudSize * 0.72
+        } else if newCount <= 10 {
+            spacing = hudSize * 0.48
+        } else {
+            spacing = hudSize * 0.28
+        }
+
+        let maxWidth: CGFloat = 120
+
+        let finalSpacing: CGFloat
+
+        if newCount > 1 {
+            finalSpacing = min(
+                spacing,
+                maxWidth / CGFloat(newCount - 1)
+            )
+        } else {
+            finalSpacing = spacing
+        }
+
+        // Convert target HUD position → scene coordinate
+        let localTarget = CGPoint(
+            x: CGFloat(newCount - 1) * finalSpacing,
+            y: CGFloat.random(in: -2...2)
+        )
+
+        let targetPos = ammoContainer.convert(
+            localTarget,
+            to: self
+        )
+
+        // ===== FALL DOWN =====
+
+        let drop = SKAction.moveBy(
+            x: 0,
+            y: -140,
+            duration: 0.75
+        )
+
+        drop.timingMode = .easeIn
+
+        // Squash saat jatuh
+        let squash = SKAction.sequence([
+
+            .group([
+                .scaleX(to: 1.18, duration: 0.10),
+                .scaleY(to: 0.78, duration: 0.10)
+            ]),
+
+            .group([
+                .scaleX(to: 1.0, duration: 0.12),
+                .scaleY(to: 1.0, duration: 0.12)
+            ])
+        ])
+
+        // ===== FLY TO HUD =====
+
+        let fly = SKAction.move(
+            to: targetPos,
+            duration: 0.55
+        )
+
+        fly.timingMode = .easeInEaseOut
+
+        let shrink = SKAction.resize(
+            toWidth: hudSize,
+            height: hudSize,
+            duration: 0.55
+        )
+
+        shrink.timingMode = .easeOut
+
+        let rotate = SKAction.rotate(
+            byAngle: CGFloat.random(in: -0.8...0.8),
+            duration: 0.55
+        )
+
+        // ===== POP =====
+
+        let pop = SKAction.sequence([
+            .scale(to: 1.2, duration: 0.08),
+            .scale(to: 1.0, duration: 0.12)
+        ])
+
+        flying.run(.sequence([
+
+            // Jatuh dulu
+            .group([
+                drop,
+                squash
+            ]),
+
+            // Pause biar kerasa
+            .wait(forDuration: 0.12),
+
+            // Terbang ke HUD
+            .group([
+                fly,
+                shrink,
+                rotate
+            ]),
+
+            // Pop masuk HUD
+            pop,
+
+            .run { [weak self] in
+                self?.updateAmmoIcons()
+            },
+
+            .removeFromParent()
+        ]))
+    }
+    
+    private func updateAmmoContainerPosition(animated: Bool = true) {
+
+        let target = CGPoint(
+            x: shootX,
+            y: shootY - 4
+        )
+
+        if animated {
+
+            let move = SKAction.move(
+                to: target,
+                duration: 0.22
+            )
+
+            move.timingMode = .easeInEaseOut
+
+            ammoContainer.run(move)
+
+        } else {
+
+            ammoContainer.position = target
+        }
+    }
+    
     // MARK: - Shooter Marker
 
     private func placeShooterMarker() {
@@ -309,7 +686,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let pos = cellCenter(col: c, row: row)
             if blockCols.contains(c) {
                 let hp   = RandomManager.shared.blockHP(ballCount: ballCount)
-                let type = RandomManager.shared.randomBlockType(turnNumber: turnNumber)
+//                let type = RandomManager.shared.randomBlockType(turnNumber: turnNumber)
+                let type: BlockType = .normal
                 addBlockEntity(at: pos, type: type, hp: hp)
             } else if c == ammoCol {
                 addPickupEntity(at: pos, type: .ammo)
@@ -365,30 +743,283 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
     }
 
+//    @objc private func onPan(_ g: UIPanGestureRecognizer) {
+//        guard stateMachine.currentState is GameAimingState else { return }
+//
+//        let raw   = g.translation(in: view)
+//        let angle = clampAngle(dx: raw.x, dy: -raw.y)
+//
+//        switch g.state {
+//        case .began, .changed:
+////            controllerSystem.updateAimLine(
+////                from: CGPoint(x: shootX, y: shootY),
+////                angle: angle,
+////                topY: gridOrigin.y + gridH
+////            )
+//            
+//            controllerSystem.updateAimDots(
+//                from: CGPoint(x: shootX, y: shootY),
+//                angle: angle,
+//                topY: gridOrigin.y + gridH
+//            )
+//
+//            
+//            // Store angle in player control component
+//            playerEntity?.component(ofType: ControlComponent.self)?.shotAngle = angle
+//
+//        case .ended, .cancelled:
+////            controllerSystem.removeAimLine()
+//            controllerSystem.removeAimDots()
+//            shotAngle = angle
+//            startVolley(angle: angle)
+//
+//        default:
+//            break
+//        }
+//    }
+    
+    private func updateAimDots(angle: CGFloat) {
+        
+        removeAimDots()
+        
+        let start = CGPoint(
+            x: shootX,
+            y: shootY
+        )
+        
+        let direction = CGVector(
+            dx: cos(angle),
+            dy: sin(angle)
+        )
+        
+        // Maximum ray length
+        let maxDistance: CGFloat = 2000
+        
+        let end = CGPoint(
+            x: start.x + direction.dx * maxDistance,
+            y: start.y + direction.dy * maxDistance
+        )
+        
+        // Default target
+        var targetPoint = end
+        
+        // ===== Raycast =====
+        
+        physicsWorld.enumerateBodies(
+            alongRayStart: start,
+            end: end
+        ) { body, point, normal, stop in
+            
+            guard let node = body.node else { return }
+            
+            // Ignore balls/player/pickups/ui
+            if node.name == "ball"
+                || node.name == "player"
+                || node.name == "pickup_ammo"
+                || node.name == "pickup_portal"
+                || node.name == "ui" {
+                
+                return
+            }
+            
+            // Only stop on wall/block
+            let category = body.categoryBitMask
+            
+            let validHit =
+            category == PhysicsCategory.wall
+            || category == PhysicsCategory.block
+            
+            if validHit {
+                
+                targetPoint = point
+                
+                stop.pointee = true
+            }
+        }
+        
+        // ===== Distance =====
+        
+        let totalDistance = hypot(
+            targetPoint.x - start.x,
+            targetPoint.y - start.y
+        )
+        
+        let spacing: CGFloat = 24
+        
+        let count = max(1, Int(totalDistance / spacing))
+        
+        let arrowSize: CGFloat = 18
+        
+        let dotCount = max(
+            1,
+            Int(totalDistance / spacing)
+        )
+        
+        // ===== DOTS =====
+        // Hanya sampai sebelum terakhir
+        for i in 0..<(dotCount - 1) {
+            
+            let progress = CGFloat(i) / CGFloat(max(dotCount - 1, 1))
+            
+            let pos = CGPoint(
+                x: start.x + (targetPoint.x - start.x) * progress,
+                y: start.y + (targetPoint.y - start.y) * progress
+            )
+            
+            let size = max(
+                4,
+                10 - CGFloat(i) * 0.15
+            )
+            
+            let dot = SKShapeNode(
+                circleOfRadius: size
+            )
+            
+            dot.fillColor = UIColor.white.withAlphaComponent(
+                max(0.25, 0.92 - CGFloat(i) * 0.03)
+            )
+            
+            dot.strokeColor = .clear
+            
+            dot.position = pos
+            
+            dot.zPosition = 20
+            
+            addChild(dot)
+            
+            aimDots.append(dot)
+        }
+        
+        //
+        // ===== ROUNDED ARROW =====
+        // Posisi menggantikan dot terakhir
+        //
+        
+        let arrowProgress = CGFloat(dotCount - 1) / CGFloat(max(dotCount - 1, 1))
+        
+        let arrowOffset = arrowSize * 0.9
+
+        let arrowPos = CGPoint(
+            x: start.x + (targetPoint.x - start.x) * arrowProgress
+                - direction.dx * arrowOffset,
+
+            y: start.y + (targetPoint.y - start.y) * arrowProgress
+                - direction.dy * arrowOffset
+        )
+        
+        let arrow = SKShapeNode()
+        
+        let arrowAngle = atan2(
+            direction.dy,
+            direction.dx
+        )
+        
+        // Rounded triangle points
+        let tip = CGPoint(
+            x: cos(arrowAngle) * arrowSize,
+            y: sin(arrowAngle) * arrowSize
+        )
+        
+        let left = CGPoint(
+            x: cos(arrowAngle + .pi * 0.82) * arrowSize * 0.72,
+            y: sin(arrowAngle + .pi * 0.82) * arrowSize * 0.72
+        )
+        
+        let right = CGPoint(
+            x: cos(arrowAngle - .pi * 0.82) * arrowSize * 0.72,
+            y: sin(arrowAngle - .pi * 0.82) * arrowSize * 0.72
+        )
+        
+        // Smooth rounded path
+        let path = UIBezierPath()
+        
+        path.move(to: tip)
+        
+        path.addQuadCurve(
+            to: left,
+            controlPoint: CGPoint(
+                x: (tip.x + left.x) / 2,
+                y: (tip.y + left.y) / 2
+            )
+        )
+        
+        path.addQuadCurve(
+            to: right,
+            controlPoint: CGPoint(
+                x: 0,
+                y: 0
+            )
+        )
+        
+        path.addQuadCurve(
+            to: tip,
+            controlPoint: CGPoint(
+                x: (tip.x + right.x) / 2,
+                y: (tip.y + right.y) / 2
+            )
+        )
+        
+        path.close()
+        
+        arrow.path = path.cgPath
+        
+        arrow.fillColor = UIColor.white.withAlphaComponent(0.96)
+        
+        arrow.strokeColor = .clear
+        
+        arrow.position = arrowPos
+        
+        arrow.zPosition = 21
+        
+        addChild(arrow)
+        
+        aimArrow = arrow
+    }
+    
     @objc private func onPan(_ g: UIPanGestureRecognizer) {
+
         guard stateMachine.currentState is GameAimingState else { return }
 
-        let raw   = g.translation(in: view)
-        let angle = clampAngle(dx: raw.x, dy: -raw.y)
+        let raw = g.translation(in: view)
+
+        let angle = clampAngle(
+            dx: raw.x,
+            dy: -raw.y
+        )
 
         switch g.state {
+
         case .began, .changed:
-            controllerSystem.updateAimLine(
-                from: CGPoint(x: shootX, y: shootY),
-                angle: angle,
-                topY: gridOrigin.y + gridH
-            )
-            // Store angle in player control component
-            playerEntity?.component(ofType: ControlComponent.self)?.shotAngle = angle
+
+            updateAimDots(angle: angle)
+
+            // Simpan angle ke player component
+            playerEntity?
+                .component(ofType: ControlComponent.self)?
+                .shotAngle = angle
 
         case .ended, .cancelled:
-            controllerSystem.removeAimLine()
+
+            removeAimDots()
+
             shotAngle = angle
+
             startVolley(angle: angle)
 
         default:
             break
         }
+    }
+    private func removeAimDots() {
+
+        aimArrow?.removeFromParent()
+        aimArrow = nil
+
+        for dot in aimDots {
+            dot.removeFromParent()
+        }
+
+        aimDots.removeAll()
     }
 
     // Clamps angle to at least 8° from horizontal so balls always move upward
@@ -403,10 +1034,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Volley
 
     private func startVolley(angle: CGFloat) {
+        isVolleyActive = true
+        refreshHUD()
         shotAngle    = angle
         volleyTotal  = ballCount
         volleyLanded = 0
-        firstLandX   = nil
+//        firstLandX   = nil
+        landedPositions.removeAll()
+        landedBallNodes.removeAll()
 
         stateMachine.enter(GameFlyingState.self)
 
@@ -629,6 +1264,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func handleBlockHit(node: SKNode) {
         guard let entity = entityManager.entity(forNode: node) else { return }
+        animateBlockHit(node)
 
         let dead = healthSystem.hit(entity: entity, ballCount: ballCount)
 
@@ -661,6 +1297,49 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 HapticManager.shared.play(.light)
             }
         }
+    }
+    
+    private func animateBlockHit(_ node: SKNode) {
+
+        guard let sprite =
+            node.childNode(withName: "blockSprite")
+                as? SKSpriteNode
+        else { return }
+
+        sprite.removeAction(forKey: "hitAnim")
+
+        let hit = SKAction.sequence([
+
+            .group([
+
+                .scaleX(to: 0.88, duration: 0.045),
+                .scaleY(to: 1.08, duration: 0.045)
+
+            ]),
+
+            .group([
+
+                .scaleX(to: 1.0, duration: 0.08),
+                .scaleY(to: 1.0, duration: 0.08)
+
+            ])
+        ])
+
+        hit.timingMode = .easeOut
+
+        sprite.run(
+            hit,
+            withKey: "hitAnim"
+        )
+
+        let shake = SKAction.sequence([
+
+            .moveBy(x: -2, y: 0, duration: 0.02),
+            .moveBy(x:  4, y: 0, duration: 0.04),
+            .moveBy(x: -2, y: 0, duration: 0.02)
+        ])
+
+        node.run(shake)
     }
 
     private func animateBlockDeath(node: SKNode, isBomb: Bool) {
@@ -733,17 +1412,42 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         node.removeFromParent()
 
         switch consumable.pickupType {
+//        case .ammo:
+//            ballCount += 1
+//            refreshHUD()
+//            HapticManager.shared.play(.medium)
+//            floatLabel("+1", at: node.position, color: UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1))
+//
         case .ammo:
+            let previousCount = ballCount
             ballCount += 1
-            refreshHUD()
-            HapticManager.shared.play(.medium)
-            floatLabel("+1", at: node.position, color: UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1))
 
+            HapticManager.shared.play(.medium)
+
+            animateAmmoGain(
+                from: node.position,
+                oldCount: previousCount,
+                newCount: ballCount
+            )
+
+            refreshHUD()
+
+            floatLabel(
+                "+1",
+                at: node.position,
+                color: UIColor(
+                    red: 0.45,
+                    green: 0.72,
+                    blue: 1.0,
+                    alpha: 1
+                )
+            )
         case .portalToken:
             portalCharges += 1
             refreshHUD()
             HapticManager.shared.play(.heavy)
             floatLabel("⬡ portal!", at: node.position, color: UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1))
+        
         }
     }
 
@@ -766,65 +1470,304 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Ball Landing
 
+//    private func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
+//        // Record first landing X as the new shooter position
+//        if firstLandX == nil {
+//            let lo = gridOrigin.x + GameConstants.ballRadius + gap
+//            let hi = gridOrigin.x + gridW - GameConstants.ballRadius - gap
+//            firstLandX = Swift.min(Swift.max(ball.position.x, lo), hi)
+//            showNextMarker(x: firstLandX!)
+//        }
+//
+//        ball.physicsBody?.velocity = .zero
+//        ball.physicsBody = nil
+//
+//        // Deregister from ECS before starting fade — entityManager.remove() would call
+//        // removeFromParent() immediately and cancel the fade-out animation.
+//        entityManager.untrack(entity)
+//
+//        ball.run(.sequence([
+//            .fadeOut(withDuration: 0.10),
+//            .removeFromParent()
+//        ]))
+//
+//        volleyLanded += 1
+//        if volleyLanded >= volleyTotal { endVolley() }
+//    }
     private func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
-        // Record first landing X as the new shooter position
-        if firstLandX == nil {
-            let lo = gridOrigin.x + GameConstants.ballRadius + gap
-            let hi = gridOrigin.x + gridW - GameConstants.ballRadius - gap
-            firstLandX = Swift.min(Swift.max(ball.position.x, lo), hi)
-            showNextMarker(x: firstLandX!)
-        }
 
+        // Clamp posisi landing
+        let lo = gridOrigin.x + GameConstants.ballRadius + gap
+        let hi = gridOrigin.x + gridW - GameConstants.ballRadius - gap
+
+        let clampedX = Swift.min(
+            Swift.max(ball.position.x, lo),
+            hi
+        )
+
+        landedPositions.append(clampedX)
+
+        // Stop physics
         ball.physicsBody?.velocity = .zero
         ball.physicsBody = nil
 
-        // Deregister from ECS before starting fade — entityManager.remove() would call
-        // removeFromParent() immediately and cancel the fade-out animation.
         entityManager.untrack(entity)
 
-        ball.run(.sequence([
-            .fadeOut(withDuration: 0.10),
-            .removeFromParent()
-        ]))
+        // Snap ke floor
+        ball.position = CGPoint(
+            x: clampedX,
+            y: shootY
+        )
+
+        // Simpan node
+        landedBallNodes.append(ball)
+
+        // Idle floating kecil
+        let float = SKAction.sequence([
+            .moveBy(x: 0, y: 2, duration: 0.45),
+            .moveBy(x: 0, y: -2, duration: 0.45)
+        ])
+
+        ball.run(
+            .repeatForever(float),
+            withKey: "idleFloat"
+        )
 
         volleyLanded += 1
-        if volleyLanded >= volleyTotal { endVolley() }
-    }
 
+        showNextMarker(x: clampedX)
+
+        if volleyLanded >= volleyTotal {
+            endVolley()
+        }
+    }
+    
     private func showNextMarker(x: CGFloat) {
+
         nextMarker?.removeFromParent()
-        let dot = SKShapeNode(circleOfRadius: GameConstants.ballRadius * 0.7)
-        dot.fillColor   = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.25)
-        dot.strokeColor = UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 0.65)
-        dot.lineWidth   = 1.5
-        dot.position    = CGPoint(x: x, y: shootY)
-        dot.zPosition   = 4
-        dot.name        = "ui"
+
+        let dot = SKShapeNode(
+            circleOfRadius: GameConstants.ballRadius * 0.7
+        )
+
+        dot.fillColor = UIColor(
+            red: 0.45,
+            green: 0.72,
+            blue: 1.0,
+            alpha: 0.25
+        )
+
+        dot.strokeColor = UIColor(
+            red: 0.45,
+            green: 0.72,
+            blue: 1.0,
+            alpha: 0.65
+        )
+
+        dot.lineWidth = 1.5
+
+        dot.position = CGPoint(
+            x: x,
+            y: shootY
+        )
+
+        dot.zPosition = 4
+        dot.name = "ui"
+
         addChild(dot)
+
         nextMarker = dot
+    }
+    
+    private func calculateBestLandingX() -> CGFloat {
+
+        guard !landedPositions.isEmpty else {
+            return frame.midX
+        }
+
+        let bucketSize: CGFloat = 40
+
+        var buckets: [Int: [CGFloat]] = [:]
+
+        for x in landedPositions {
+
+            let key = Int(x / bucketSize)
+
+            buckets[key, default: []].append(x)
+        }
+
+        // Bucket terbanyak
+        let best = buckets.max {
+            $0.value.count < $1.value.count
+        }
+
+        guard let values = best?.value else {
+            return frame.midX
+        }
+
+        // Average position
+        let avg = values.reduce(0, +) / CGFloat(values.count)
+
+        // Clamp screen
+        let lo = gridOrigin.x + 30
+        let hi = gridOrigin.x + gridW - 30
+
+        return min(max(avg, lo), hi)
+    }
+    
+    
+    private func repositionLandedBallsAroundPlayer() {
+
+        guard !landedBallNodes.isEmpty else { return }
+
+        // Dynamic spacing
+        let spacing: CGFloat
+
+        if landedBallNodes.count <= 5 {
+            spacing = 16
+        } else if landedBallNodes.count <= 12 {
+            spacing = 12
+        } else {
+            spacing = 8
+        }
+
+        // Total width
+        let totalWidth =
+            CGFloat(landedBallNodes.count - 1) * spacing
+
+        // Clamp supaya ga keluar layar
+        let minX = gridOrigin.x + 20
+        let maxX = gridOrigin.x + gridW - totalWidth - 20
+
+        let startX = min(
+            max(shootX - totalWidth / 2, minX),
+            maxX
+        )
+
+        for (index, ball) in landedBallNodes.enumerated() {
+
+            ball.removeAction(forKey: "idleFloat")
+
+            let target = CGPoint(
+                x: startX + CGFloat(index) * spacing,
+                y: shootY
+            )
+
+            let move = SKAction.move(
+                to: target,
+                duration: 0.32
+            )
+
+            move.timingMode = .easeInEaseOut
+
+            let bounce = SKAction.sequence([
+                .moveBy(x: 0, y: 4, duration: 0.08),
+                .moveBy(x: 0, y: -4, duration: 0.10)
+            ])
+
+            let rotate = SKAction.rotate(
+                toAngle: CGFloat.random(in: -0.15...0.15),
+                duration: 0.2
+            )
+
+            ball.run(.group([
+                .sequence([move, bounce]),
+                rotate
+            ]))
+        }
     }
 
     // MARK: - End Volley / Advance Board
 
+//    private func endVolley() {
+//        if let lx = firstLandX { shootX = lx }
+//        firstLandX = nil
+//
+//        stateMachine.enter(GameTurnEndState.self)
+//
+//        clearPortalRings()
+//        nextMarker?.removeFromParent()
+//        nextMarker = nil
+//
+//        turnNumber += 1
+//        refreshHUD()
+//        placeShooterMarker()
+//        advanceBoard()
+//
+//        // Brief delay, then return to aiming
+//        run(.sequence([
+//            .wait(forDuration: 0.45),
+//            .run { [weak self] in self?.stateMachine.enter(GameAimingState.self) }
+//        ]))
+//    }
     private func endVolley() {
-        if let lx = firstLandX { shootX = lx }
-        firstLandX = nil
+
+        // Cari posisi landing paling ramai
+        shootX = calculateBestLandingX()
+        updateAmmoContainerPosition()
 
         stateMachine.enter(GameTurnEndState.self)
 
         clearPortalRings()
+
         nextMarker?.removeFromParent()
         nextMarker = nil
 
-        turnNumber += 1
-        refreshHUD()
-        placeShooterMarker()
-        advanceBoard()
+        // Kumpulkan bakpao ke player baru
+        repositionLandedBallsAroundPlayer()
 
-        // Brief delay, then return to aiming
+        // Delay supaya animasi kumpul selesai
         run(.sequence([
-            .wait(forDuration: 0.45),
-            .run { [weak self] in self?.stateMachine.enter(GameAimingState.self) }
+
+            .wait(forDuration: 0.4),
+
+            .run { [weak self] in
+
+                guard let self else { return }
+
+                for ball in self.landedBallNodes {
+
+                    ball.run(.sequence([
+
+                        .group([
+                            .fadeOut(withDuration: 0.12),
+                            .scale(to: 0.7, duration: 0.12)
+                        ]),
+
+                        .removeFromParent()
+                    ]))
+                }
+
+                self.landedBallNodes.removeAll()
+            }
+        ]))
+
+        turnNumber += 1
+
+        // Delay sedikit supaya visual lebih smooth
+        run(.sequence([
+
+            .wait(forDuration: 0.12),
+
+            .run { [weak self] in
+
+                guard let self else { return }
+                
+                self.isVolleyActive = false
+                self.refreshHUD()
+                self.placeShooterMarker()
+                self.advanceBoard()
+            }
+        ]))
+
+        // Back to aiming
+        run(.sequence([
+
+            .wait(forDuration: 0.62),
+
+            .run { [weak self] in
+                self?.stateMachine.enter(GameAimingState.self)
+            }
         ]))
     }
 
