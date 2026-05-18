@@ -12,7 +12,7 @@ class PhysicsComponent: GKComponent {
     var physicsBody: SKPhysicsBody
 
     // Physics Contact
-    var contactQueue = [PhysicsContact]()
+    var contactQueue = [SKPhysicsContact]()
 
     //  Accessing the parent's spritenode if any
     var spriteNode: SKNode? {
