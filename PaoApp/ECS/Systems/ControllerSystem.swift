@@ -9,6 +9,24 @@ import Foundation
 import GameplayKit
 
 // TODO: Change the GKComponent to PositionComponent, ControlComponent
-class ControllerSystem: GKComponentSystem<GKComponent> {
+class ControllerSystem: GKComponentSystem<ControlComponent> {
+    override init() {
+        super.init(componentClass: ControlComponent.self)
+    }
 
+    override func update(deltaTime seconds: TimeInterval) {
+        super.update(deltaTime: seconds)
+
+        for controlComponent in components {
+            guard
+                let renderComponent = controlComponent.entity?.component(
+                    ofType: RenderComponent.self
+                )
+            else { return }
+
+            renderComponent.node.constraints = [
+                controlComponent.constraint
+            ]
+        }
+    }
 }

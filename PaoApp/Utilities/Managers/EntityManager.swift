@@ -40,11 +40,13 @@ final class EntityManager {
         let collisionSystem = CollisionSystem(
             entityManager: self
         )
+        let controllerSystem = ControllerSystem()
         // Example: let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
         // Then include: ComponentSystemBox(system: moveSystem)
 
         return [
             ComponentSystemBox(system: collisionSystem),
+            ComponentSystemBox(system: controllerSystem),
         ]
     }()
 
