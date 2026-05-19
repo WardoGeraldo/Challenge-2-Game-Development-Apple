@@ -5,25 +5,32 @@
 //  Created by Axel on 13/05/26.
 //
 
+import Foundation
 import GameplayKit
 
-// Entry point state. Sets up layout, spawns the first rows, then hands off to GameIdleState.
-class GameStartState: GKState {
+class GameStartState: GameState {
+    // MARK: Properties
 
-    weak var context: GameStateContext?
+    // MARK: Initialization
 
-    init(context: GameStateContext) {
-        self.context = context
-        super.init()
-    }
+    // MARK: GKState overrides
 
     override func didEnter(from previousState: GKState?) {
-        context?.setupInitialGame()
-        // Move to idle immediately after setup so the player can aim.
-        stateMachine?.enter(GameIdleState.self)
+        super.didEnter(from: previousState)
+
+        // TODO: Do we need to do anything here?
+    }
+
+    override func willExit(to nextState: GKState) {
+        super.willExit(to: nextState)
+
+        // TODO: Do we need to do anything here?
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameIdleState.self
+        // This state can only transition to the serve and refilling states.
+        return stateClass is GameIdleState.Type
     }
+
+    // MARK: Methods
 }

@@ -5,40 +5,33 @@
 //  Created by Axel on 13/05/26.
 //
 
+import Foundation
 import GameplayKit
 
-// Active while the player drags to aim. Tracks the pan angle and updates the
-// guiding arrow. Commits the shot when the drag ends.
-class GameAimingState: GKState {
+class GameAimState: GameState {
+    // MARK: Properties
 
-    weak var context: GameStateContext?
+    // MARK: Initialization
 
-    init(context: GameStateContext) {
-        self.context = context
-        super.init()
+    // MARK: GKState overrides
+
+    override func didEnter(from previousState: GKState?) {
+        super.didEnter(from: previousState)
+
+        // TODO: Implement draw aiming line
     }
-
-    // MARK: - Called by GameScene's pan gesture handler
-
-    /// Updates the guiding arrow as the player drags.
-    func updateAim(angle: CGFloat) {
-        guard let origin = context?.shooterPosition else { return }
-        context?.showAimLine(from: origin, angle: angle)
-    }
-
-    /// Locks in the shot angle and transitions to the flying state.
-    func commitShot(angle: CGFloat) {
-        context?.pendingShotAngle = angle
-        stateMachine?.enter(GameFlyingState.self)
-    }
-
-    // MARK: - GKState
 
     override func willExit(to nextState: GKState) {
-        context?.hideAimLine()
+        super.willExit(to: nextState)
+
+        // TODO: Implement remove aiming line
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameFlyingState.self
+        // This state can only transition to the serve and refilling states.
+        return stateClass is GameFlyingState.Type
+            || stateClass is GameIdleState.Type
     }
+
+    // MARK: Methods
 }

@@ -4,34 +4,32 @@
 //
 //  Created by Axel on 13/05/26.
 //
-
+import Foundation
 import GameplayKit
 
-// Terminal state shown when a block reaches the shooter row.
-// GameScene calls restart() (e.g. on tap) to re-enter GameStartState.
-class GameOverState: GKState {
+class GameOverState: GameState {
+    // MARK: Properties
 
-    weak var context: GameStateContext?
+    // MARK: Initialization
 
-    init(context: GameStateContext) {
-        self.context = context
-        super.init()
-    }
-
-    // MARK: - GKState
+    // MARK: GKState overrides
 
     override func didEnter(from previousState: GKState?) {
-        context?.showGameOverScreen()
+        super.didEnter(from: previousState)
+
+        // TODO: Do we need to do anything here?
     }
 
-    // MARK: - Called by GameScene on player restart action
+    override func willExit(to nextState: GKState) {
+        super.willExit(to: nextState)
 
-    func restart() {
-        context?.resetGame()
-        stateMachine?.enter(GameStartState.self)
+        // TODO: Do we need to do anything here?
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameStartState.self
+        // This state can only transition to the serve and refilling states.
+        return stateClass is GameStartState.Type
     }
+
+    // MARK: Methods
 }

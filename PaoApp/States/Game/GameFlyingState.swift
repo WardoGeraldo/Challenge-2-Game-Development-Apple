@@ -4,33 +4,36 @@
 //
 //  Created by Axel on 13/05/26.
 //
-
+import Foundation
 import GameplayKit
 
-// Active while balls are in flight. Fires the volley on entry and polls each
-// frame until all balls have landed, then hands off to GameTurnEndState.
-class GameFlyingState: GKState {
+class GameFlyingState: GameState {
+    // MARK: Properties
 
-    weak var context: GameStateContext?
+    // MARK: Initialization
 
-    init(context: GameStateContext) {
-        self.context = context
-        super.init()
-    }
-
-    // MARK: - GKState
+    // MARK: GKState overrides
 
     override func didEnter(from previousState: GKState?) {
-        context?.fireVolley()
+        super.didEnter(from: previousState)
+
+        // TODO:
     }
 
-    override func update(deltaTime seconds: TimeInterval) {
-        if context?.isVolleyComplete == true {
-            stateMachine?.enter(GameTurnEndState.self)
-        }
+    override func willExit(to nextState: GKState) {
+        super.willExit(to: nextState)
+
+        // TODO: Implement block step down mechanism
+
+        // TODO: Implement player move to ball touchdown location
+
+        // TODO: Implement trigger block spawn
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameTurnEndState.self
+        // This state can only transition to the serve and refilling states.
+        return stateClass is GameTurnEndState.Type
     }
+
+    // MARK: Methods
 }

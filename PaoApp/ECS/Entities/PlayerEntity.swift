@@ -16,7 +16,7 @@ class PlayerEntity: GKEntity {
         super.init()
         addComponent(RenderComponent(node))
         addComponent(TransformComponent(node.position, 0))
-        addComponent(ControlComponent())
+        addComponent(ControlComponent(pointTo: node.position))
     }
 
     required init?(coder: NSCoder) {
