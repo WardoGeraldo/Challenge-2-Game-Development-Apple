@@ -1,31 +1,26 @@
 //
-//  Player.swift
+//  GroundEntity.swift
 //  PaoApp
 //
-//  Created by Saujana Shafi on 05/05/26.
+//  Created by Saujana Shafi on 19/05/26.
 //
 
 import Foundation
 import GameplayKit
-import SpriteKit
 
-class PlayerEntity: GKEntity {
-    init(position: CGPoint) {
+class GroundEntity: GKEntity {
+    init(_ position: CGPoint) {
         super.init()
 
-        // Sprite
-        let node = PlayerShapeNode(scale: 1.0)
+        let node = GroundShapeNode(scale: 1.0)
         addComponent(RenderComponent(node))
 
-        // Logic
+        let physicsBody = makeGroundPhysicsBody(scale: 1.0)
+        addComponent(PhysicsComponent(physicsBody))
+
         addComponent(
             TransformComponent(
                 position
-            )
-        )
-        addComponent(
-            ControlComponent(
-                pointTo: position
             )
         )
     }
