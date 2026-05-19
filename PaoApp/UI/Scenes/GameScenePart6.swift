@@ -12,27 +12,27 @@ import SpriteKit
 extension GameScene {
     // MARK: - Physics Contacts
     
-    func didBegin(_ contact: SKPhysicsContact) {
-        let a = contact.bodyA.categoryBitMask
-        let b = contact.bodyB.categoryBitMask
-        let pair = a | b
-        
-        // Ball ↔ Block
-        if pair == PhysicsCategory.ball | PhysicsCategory.block {
-            guard let ballNode  = (a == PhysicsCategory.ball  ? contact.bodyA : contact.bodyB).node,
-                  let blockNode = (a == PhysicsCategory.block ? contact.bodyA : contact.bodyB).node
-            else { return }
-            collisionSystem.enqueue(CollisionEvent(ballNode: ballNode, otherNode: blockNode, isBlock: true))
-        }
-        
-        // Ball ↔ Pickup
-        if pair == PhysicsCategory.ball | PhysicsCategory.pickup {
-            guard let ballNode   = (a == PhysicsCategory.ball   ? contact.bodyA : contact.bodyB).node,
-                  let pickupNode = (a == PhysicsCategory.pickup ? contact.bodyA : contact.bodyB).node
-            else { return }
-            collisionSystem.enqueue(CollisionEvent(ballNode: ballNode, otherNode: pickupNode, isBlock: false))
-        }
-    }
+//    func didBegin(_ contact: SKPhysicsContact) {
+//        let a = contact.bodyA.categoryBitMask
+//        let b = contact.bodyB.categoryBitMask
+//        let pair = a | b
+//        
+//        // Ball ↔ Block
+//        if pair == PhysicsCategory.ball | PhysicsCategory.block {
+//            guard let ballNode  = (a == PhysicsCategory.ball  ? contact.bodyA : contact.bodyB).node,
+//                  let blockNode = (a == PhysicsCategory.block ? contact.bodyA : contact.bodyB).node
+//            else { return }
+//            collisionSystem.enqueue(CollisionEvent(ballNode: ballNode, otherNode: blockNode, isBlock: true))
+//        }
+//        
+//        // Ball ↔ Pickup
+//        if pair == PhysicsCategory.ball | PhysicsCategory.pickup {
+//            guard let ballNode   = (a == PhysicsCategory.ball   ? contact.bodyA : contact.bodyB).node,
+//                  let pickupNode = (a == PhysicsCategory.pickup ? contact.bodyA : contact.bodyB).node
+//            else { return }
+//            collisionSystem.enqueue(CollisionEvent(ballNode: ballNode, otherNode: pickupNode, isBlock: false))
+//        }
+//    }
     
     // MARK: - Block Hit Handling
     

@@ -29,25 +29,8 @@ import UIKit
 // Reference: ECS_Prototype → BlockNodes.swift (full implementation with color gradients and spawn animation)
 
 class BlockNode: SKNode {
-    enum BlockType {
-        case normal
-        case triangle(flipped: Bool)   // unlocks turn 5 — diagonal bounces
-        case bomb                      // unlocks turn 10 — explodes adjacent blocks on death
-        case rover                     // unlocks turn 3 — slides left/right each turn
-        
-        var isBomb: Bool {
-            if case .bomb = self { return true }
-            return false
-        }
-        
-        var isRover: Bool {
-            if case .rover = self { return true }
-            return false
-        }
-    }
-    
     // MARK: - Factory
-    
+
     static func make(type: BlockType, hp: Int, ballCount: Int, cell: CGFloat) -> BlockNode {
         let node = BlockNode()
         node.name      = "block"
@@ -125,28 +108,6 @@ class BlockNode: SKNode {
         addChild(sprite)
         
         //
-        // PHYSICS
-        //
-        physicsBody = SKPhysicsBody(
-            rectangleOf: CGSize(
-                width: visualSize,
-                height: visualSize
-            )
-        )
-        
-        physicsBody?.isDynamic = false
-        physicsBody?.friction = 0
-        physicsBody?.restitution = 1
-        
-        physicsBody?.categoryBitMask = PhysicsCategory.block
-        
-        physicsBody?.collisionBitMask =
-        PhysicsCategory.ball
-        
-        physicsBody?.contactTestBitMask =
-        PhysicsCategory.ball
-        
-        //
         // HP LABEL
         //
         let hpNode = hpLabel(
@@ -204,13 +165,6 @@ class BlockNode: SKNode {
         shape.lineWidth   = 1
         shape.name        = "blockSprite"
         
-        let pts: [CGPoint] = flipped
-        ? [CGPoint(x: -h/2, y: -h/2), CGPoint(x:  h/2, y: -h/2), CGPoint(x:  h/2, y:  h/2)]
-        : [CGPoint(x: -h/2, y: -h/2), CGPoint(x:  h/2, y: -h/2), CGPoint(x: -h/2, y:  h/2)]
-        let triBody = SKPhysicsBody(polygonFrom: CGPath.polygon(points: pts))
-        setupBlockBodyProperties(triBody)
-        physicsBody = triBody
-        
         addChild(shape)
         addChild(hpLabel(hp: hp, fontSize: cell * 0.30))
     }
@@ -241,7 +195,6 @@ class BlockNode: SKNode {
         icon.verticalAlignmentMode = .center
         icon.position              = CGPoint(x: 0, y: cell * 0.08)
         
-        physicsBody = blockBody(size: CGSize(width: cell, height: cell))
         addChild(sprite)
         addChild(glow)
         addChild(icon)
@@ -270,7 +223,6 @@ class BlockNode: SKNode {
         arrow.verticalAlignmentMode = .center
         arrow.position              = CGPoint(x: 0, y: cell * 0.08)
         
-        physicsBody = blockBody(size: CGSize(width: cell, height: cell))
         addChild(sprite)
         addChild(border)
         addChild(arrow)
@@ -278,22 +230,7 @@ class BlockNode: SKNode {
     }
     
     // MARK: - Helpers
-    
-    private func blockBody(size: CGSize) -> SKPhysicsBody {
-        let body = SKPhysicsBody(rectangleOf: size)
-        setupBlockBodyProperties(body)
-        return body
-    }
-    
-    private func setupBlockBodyProperties(_ body: SKPhysicsBody) {
-        body.isDynamic          = false
-        body.friction           = 0
-        body.restitution        = 1
-        body.categoryBitMask    = PhysicsCategory.block
-        body.collisionBitMask   = PhysicsCategory.ball
-        body.contactTestBitMask = PhysicsCategory.ball
-    }
-    
+
     //    private func hpLabel(hp: Int, fontSize: CGFloat, offsetY: CGFloat = 0) -> SKLabelNode {
     //        let lbl = SKLabelNode(fontNamed: GameConstants.fontName)
     //        lbl.name                    = "hp"

@@ -12,7 +12,7 @@ import SpriteKit
 // Represents a single flying ball in the active volley.
 // VelocityComponent tracks rise/land state; physics velocity lives in SKPhysicsBody.
 class BallEntity: GKEntity {
-    init(node: SKSpriteNode) {
+    init(node: SKNode) {
         super.init()
         addComponent(RenderComponent(node))
         addComponent(VelocityComponent())

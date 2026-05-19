@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import GameplayKit
 import SpriteKit
+
 extension GameScene: SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
         guard
@@ -27,10 +28,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
         
         physicsComponentA.contactQueue.append(
-            PhysicsContact(
-                entityA: entityA,
-                entityB: entityB,
-            )
+            contact
         )
     }
     
@@ -44,7 +42,7 @@ extension GameScene: SKPhysicsContactDelegate {
         let spawnBody    = node.physicsBody
         node.physicsBody = nil
         
-        let entity = BlockEntity(node: node, hp: hp, type: type)
+        let entity = BlockEntity(type: .normal, health: 5, ballCount: 3, cell: 3.0)
         entityManager.add(entity)
         
         // Re-attach physics after spawn animation completes
@@ -306,7 +304,7 @@ extension GameScene: SKPhysicsContactDelegate {
             // Simpan angle ke player component
             playerEntity?
                 .component(ofType: ControlComponent.self)?
-                .shotAngle = angle
+                .pointTo = CGPoint(x: raw.x, y: raw.y)
             
         case .ended, .cancelled:
             
@@ -375,10 +373,7 @@ extension GameScene: SKPhysicsContactDelegate {
         //        let node = BallNode(radius: GameConstants.ballRadius)
         guard let texture = bakpaoNode?.texture else { return }
         
-        let node = BallNode(
-            texture: texture,
-            radius: GameConstants.ballRadius
-        )
+        let node = BallNode(scale: 1.0)
         node.position = CGPoint(x: shootX, y: shootY)
         let entity    = BallEntity(node: node)
         entityManager.add(entity)
@@ -483,13 +478,14 @@ extension GameScene: SKPhysicsContactDelegate {
         )
         
         // Process queued collision events
-        for event in collisionSystem.dequeueAll() {
-            if event.isBlock {
-                handleBlockHit(node: event.otherNode)
-            } else {
-                handlePickupCollected(node: event.otherNode)
-            }
-        }
+//        TODO: benerno cuk
+//        for event in collisionSystem.dequeueAll() {
+//            if event.isBlock {
+//                handleBlockHit(node: event.otherNode)
+//            } else {
+//                handlePickupCollected(node: event.otherNode)
+//            }
+//        }
         
         guard stateMachine.currentState is GameFlyingState else { return }
         

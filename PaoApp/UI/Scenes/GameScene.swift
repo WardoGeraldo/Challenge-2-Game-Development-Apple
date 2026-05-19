@@ -11,7 +11,7 @@ import GameplayKit
 // MARK: - GameScene
 // Orchestrates ECS entities, systems, and game state machine.
 // Handles physics contacts and gesture input; delegates logic to dedicated systems.
-final class GameScene: SKScene, SKPhysicsContactDelegate {
+final class GameScene: SKScene {
     
     // MARK: - Layout (computed dynamically from screen size)
     var cell:       CGFloat = 44
@@ -108,15 +108,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         scaleMode = .resizeFill
         entityManager    = EntityManager(scene: self)
         movementSystem   = MovementSystem()
-        collisionSystem  = CollisionSystem()
+        collisionSystem  = CollisionSystem(entityManager: entityManager)
         healthSystem     = HealthSystem()
-        controllerSystem = ControllerSystem(scene: self)
+        controllerSystem = ControllerSystem()
         
         // State machine: Aiming → Flying → TurnEnd → Aiming
         stateMachine = GKStateMachine(states: [
-            GameAimingState(),
-            GameFlyingState(),
-            GameTurnEndState()
+            GameStartState(entityManager),
+            GameIdleState(entityManager),
+            GameAimingState(entityManager),
+            GameFlyingState(entityManager),
+            GameTurnEndState(entityManager),
+            GameOverState(entityManager),
         ])
         stateMachine.enter(GameAimingState.self)
         
@@ -178,7 +181,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         for c in 0..<GameConstants.cols {
             let pos = cellCenter(col: c, row: row)
             if blockCols.contains(c) {
-                let hp   = RandomManager.shared.blockHP(ballCount: ballCount)
+                let hp   = RandomManager.shared.generateFairHP(currentAmmo: ballCount)
                 //                let type = RandomManager.shared.randomBlockType(turnNumber: turnNumber)
                 let type: BlockType = .normal
                 addBlockEntity(at: pos, type: type, hp: hp)
@@ -188,6 +191,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 addPickupEntity(at: pos, type: .portalToken)
             }
         }
+    }
+    
+    
+    func cellCenter(col: Int, row: Int) -> CGPoint {
+        
+        return CGPoint(
+            x:
+                gridOrigin.x
+            + CGFloat(col) * cell
+            + cell / 2,
+            
+            y:
+                gridOrigin.y
+            + gridH
+            - CGFloat(row) * cell
+            - cell / 2
+        )
     }
     
     //MARK: Collision

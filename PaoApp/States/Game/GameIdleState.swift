@@ -19,10 +19,14 @@ class GameIdleState: GKState {
     }
 
     override func didEnter(from previousState: GKState?) {
-        // Nothing to set up — input is always live; GameScene gates it via currentState check.
+        super.didEnter(from: previousState)
+    }
+    
+    override func willExit(to nextState: GKState) {
+        super.willExit(to: nextState)
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameAimingState.self
+        return stateClass is GameAimingState.Type
     }
 }

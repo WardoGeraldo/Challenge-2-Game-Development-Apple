@@ -88,30 +88,15 @@ extension GameScene {
     }
     
     func configureBlock() {
-        let block = BlockEntity(health: 5)
+        let block = BlockEntity(type: .normal, health: 5, ballCount: 3, cell: 3.0)
         entityManager.add(block)
     }
     
-    override func update(_ currentTime: TimeInterval) {
-        let deltaTime = currentTime - lastUpdateTimeInterval
-        lastUpdateTimeInterval = currentTime
-        
-        entityManager.update(deltaTime)
-        func cellCenter(col: Int, row: Int) -> CGPoint {
-            
-            return CGPoint(
-                x:
-                    gridOrigin.x
-                + CGFloat(col) * cell
-                + cell / 2,
-                
-                y:
-                    gridOrigin.y
-                + gridH
-                - CGFloat(row) * cell
-                - cell / 2
-            )
-        }
-        
-    }
+//    override func update(_ currentTime: TimeInterval) {
+//        let deltaTime = currentTime - lastUpdateTimeInterval
+//        lastUpdateTimeInterval = currentTime
+//        
+//        entityManager.update(deltaTime)
+//        
+//    }
 }
