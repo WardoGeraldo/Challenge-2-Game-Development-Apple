@@ -16,16 +16,6 @@ final class GameScene: SKScene {
     // Update time
     var lastUpdateTimeInterval: TimeInterval = 0
 
-    private var score: Int = 0
-
-    private var isGameOver: Bool = false
-
-    // Physics Contact
-    var contactQueue = [SKPhysicsContact]()
-
-    private var shooterNode: SKShapeNode!
-    private var blockNode: SKShapeNode!
-
     override init(size: CGSize) {
         super.init(size: size)
     }
@@ -48,28 +38,76 @@ final class GameScene: SKScene {
 
         configure()
 
-        configureWalls()
+        configureArena()
 
-        configureBlock()
+        configurePlayer()
     }
 
     func configure() {
         self.backgroundColor = .black
+        anchorPoint = CGPoint(x: 0.5, y: 0.5)
         physicsWorld.contactDelegate = self
         physicsWorld.gravity = .zero
     }
 
-    func configurePlayer() {
+    private func configureArena() {
+        let position = CGPoint.zero
 
+        let arenaEntity = ArenaEntity(
+            position
+        )
+        entityManager.add(arenaEntity)
+
+        let groundEntity = GroundEntity(
+            position
+        )
+        entityManager.add(groundEntity)
     }
 
-    private func configureWalls() {
-        
-    }
+    private func configurePlayer() {
+        guard
+            let arenaEntity = entityManager.entities(with: ArenaComponent.self)
+                .first,
+            let transformComponent = arenaEntity.component(
+                ofType: TransformComponent.self
+            )
+        else {
+            return
+        }
 
-    private func configureBlock() {
-        let block = BlockEntity(health: 5)
-        entityManager.add(block)
+        let playerEntity = PlayerEntity(
+            position: CGPoint(
+                x: transformComponent.position.x,
+                y: transformComponent.position.y - (kCell * 4),
+            )
+        )
+        entityManager.add(playerEntity)
+
+        entityManager.add(
+            BallEntity(
+                position: CGPoint(
+                    x: transformComponent.position.x,
+                    y: transformComponent.position.y - (kCell * 4),
+                )
+            )
+        )
+        entityManager.add(
+            BallEntity(
+                position: CGPoint(
+                    x: transformComponent.position.x,
+                    y: transformComponent.position.y - (kCell * 4),
+                )
+            )
+        )
+        entityManager.add(
+            BallEntity(
+                position: CGPoint(
+                    x: transformComponent.position.x,
+                    y: transformComponent.position.y - (kCell * 4),
+                )
+            )
+        )
+
     }
     
     override func update(_ currentTime: TimeInterval) {
@@ -83,29 +121,52 @@ final class GameScene: SKScene {
 // MARK: Touch Events
 extension GameScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if isGameOver {
-            let gameScene = GameScene(size: self.size)
-            self.view?.presentScene(
-                gameScene,
-                transition: .fade(withDuration: 1.0)
-            )
-        }
+        guard
+            let playerEntity = entityManager.entities(
+                with: ControlComponent.self
+            ).first,
+            let controlComponent = playerEntity.component(
+                ofType: ControlComponent.self
+            ),
+            let point = touches.first?.location(in: self)
+        else { return }
 
-        if let point = touches.first?.location(in: self) {
-            orientShooter(to: point)
-        }
+        controlComponent.orient(to: point)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let point = touches.first?.location(in: self) {
-            orientShooter(to: point)
-        }
+        guard
+            let playerEntity = entityManager.entities(
+                with: ControlComponent.self
+            ).first,
+            let controlComponent = playerEntity.component(
+                ofType: ControlComponent.self
+            ),
+            let point = touches.first?.location(in: self)
+        else { return }
+
+        controlComponent.orient(to: point)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let point = touches.first?.location(in: self) {
-            fireBall(to: point)
-        }
+        let projectiles = entityManager.entities(with: ProjectileComponent.self)
+
+        guard
+            let playerEntity = entityManager.entities(
+                with: ControlComponent.self
+            ).first,
+            let controlComponent = playerEntity.component(
+                ofType: ControlComponent.self
+            ),
+            let point = touches.first?.location(in: self)
+        else { return }
+
+        controlComponent.orient(to: point)
+        controlComponent.projectiles = projectiles
+
+        //        if let point = touches.first?.location(in: self) {
+        //            fireBall(to: point)
+        //        }
     }
 }
 
