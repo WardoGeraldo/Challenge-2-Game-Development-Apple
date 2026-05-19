@@ -42,6 +42,7 @@ final class EntityManager {
         )
         let controllerSystem = ControllerSystem()
         let shootingSystem = ShootingSystem()
+        let healthSystem = HealthSystem(entityManager: self)
         // Example: let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
         // Then include: ComponentSystemBox(system: moveSystem)
 
@@ -49,6 +50,7 @@ final class EntityManager {
             ComponentSystemBox(system: collisionSystem),
             ComponentSystemBox(system: controllerSystem),
             ComponentSystemBox(system: shootingSystem),
+            ComponentSystemBox(system: healthSystem),
         ]
     }()
 
@@ -105,6 +107,11 @@ final class EntityManager {
         entities.first {
             $0.component(ofType: RenderComponent.self)?.node === node
         }
+    }
+
+    // Find the entity whose type is the given Entity
+    func entities<T: GKEntity>(with entityType: T.Type) -> [GKEntity] {
+        entities.filter { $0 is T }
     }
 
     // TODO: Add helper methods such as generate blocks here?

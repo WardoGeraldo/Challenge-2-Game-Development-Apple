@@ -21,6 +21,8 @@ class HealthComponent: GKComponent {
 
     func hit(demage: Int = 1) {
         self.health -= demage
+
+        self.label.text = String(self.health)
     }
 
     init(

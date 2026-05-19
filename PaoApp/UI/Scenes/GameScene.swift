@@ -41,6 +41,8 @@ final class GameScene: SKScene {
         configureArena()
 
         configurePlayer()
+
+        configureBlock()
     }
 
     func configure() {
@@ -75,39 +77,51 @@ final class GameScene: SKScene {
             return
         }
 
+        let position = CGPoint(
+            x: transformComponent.position.x,
+            y: transformComponent.position.y - (kCell * 4)
+        )
+
         let playerEntity = PlayerEntity(
-            position: CGPoint(
-                x: transformComponent.position.x,
-                y: transformComponent.position.y - (kCell * 4),
-            )
+            position: position
         )
         entityManager.add(playerEntity)
 
         entityManager.add(
             BallEntity(
-                position: CGPoint(
-                    x: transformComponent.position.x,
-                    y: transformComponent.position.y - (kCell * 4),
-                )
+                position: position
             )
         )
         entityManager.add(
             BallEntity(
-                position: CGPoint(
-                    x: transformComponent.position.x,
-                    y: transformComponent.position.y - (kCell * 4),
-                )
+                position: position
             )
         )
         entityManager.add(
             BallEntity(
-                position: CGPoint(
-                    x: transformComponent.position.x,
-                    y: transformComponent.position.y - (kCell * 4),
-                )
+                position: position
             )
         )
+    }
 
+    private func configureBlock() {
+        guard
+            let arenaEntity = entityManager.entities(with: ArenaComponent.self)
+                .first,
+            let transformComponent = arenaEntity.component(
+                ofType: TransformComponent.self
+            )
+        else {
+            return
+        }
+
+        let blockEntity = BlockEntity(
+            position: CGPoint(
+                x: transformComponent.position.x,
+                y: transformComponent.position.y
+            )
+        )
+        entityManager.add(blockEntity)
     }
 
     override func update(_ currentTime: TimeInterval) {
