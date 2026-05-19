@@ -9,10 +9,14 @@ import Foundation
 import GameplayKit
 
 class TransformComponent: GKComponent {
-    var position: CGPoint
-
-    // TODO: Should we use zRotation or constraints orient?
-    //    var zRotation: CGFloat
+    var position: CGPoint {
+        get {
+            spriteNode?.position ?? .zero
+        }
+        set {
+            spriteNode?.position = newValue
+        }
+    }
 
     //  Accessing the parent's spritenode if any
     var spriteNode: SKNode? {
@@ -20,14 +24,10 @@ class TransformComponent: GKComponent {
             as? SKNode
     }
 
-    init(_ position: CGPoint, _ zRotation: CGFloat) {
-        self.position = position
-        //        self.zRotation = zRotation
-
+    init(_ position: CGPoint) {
         super.init()
 
-        spriteNode?.position = position
-        //        spriteNode?.zRotation = zRotation
+        self.position = position
     }
 
     override func didAddToEntity() {
