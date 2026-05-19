@@ -10,24 +10,23 @@ import GameplayKit
 
 class BlockEntity: GKEntity {
     init(
-        health: Int,
+        position: CGPoint,
     ) {
         super.init()
 
         // Visuals
         let node = BlockShapeNode(scale: 1.0)
         addComponent(RenderComponent(node))
-
+        
         // Physics
-        let physicsBody = BlockPhysicsBody()
+        let physicsBody = makeBlockPhysicsBody(scale: 1.0)
         addComponent(PhysicsComponent(physicsBody))
 
         // Logic
-        addComponent(HealthComponent(health))
+        addComponent(HealthComponent(5))
         addComponent(
             TransformComponent(
-                CGPoint(x: 0, y: 0),
-                0
+                position
             )
         )
     }

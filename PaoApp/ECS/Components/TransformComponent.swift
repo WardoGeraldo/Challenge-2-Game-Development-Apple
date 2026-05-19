@@ -9,11 +9,14 @@ import Foundation
 import GameplayKit
 
 class TransformComponent: GKComponent {
+    private var _position: CGPoint
+
     var position: CGPoint {
         get {
-            spriteNode?.position ?? .zero
+            spriteNode?.position ?? _position
         }
         set {
+            _position = newValue
             spriteNode?.position = newValue
         }
     }
@@ -25,6 +28,8 @@ class TransformComponent: GKComponent {
     }
 
     init(_ position: CGPoint) {
+        self._position = position
+
         super.init()
 
         self.position = position
@@ -36,7 +41,7 @@ class TransformComponent: GKComponent {
         if let renderComponent = entity?.component(
             ofType: RenderComponent.self
         ) {
-            renderComponent.node.position = self.position
+            renderComponent.node.position = _position
         }
     }
 

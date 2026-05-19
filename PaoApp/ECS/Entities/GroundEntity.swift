@@ -23,6 +23,7 @@ class GroundEntity: GKEntity {
                 position
             )
         )
+        addComponent(GroundComponent())
     }
 
     required init?(coder: NSCoder) {

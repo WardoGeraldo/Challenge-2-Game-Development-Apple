@@ -53,7 +53,7 @@ func makeBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
     let radius = kCell * scale / 4
     let body = SKPhysicsBody(circleOfRadius: radius)
 
-    body.isDynamic = false
+    body.isDynamic = true
     body.affectedByGravity = false
 
     body.friction = 0.0
