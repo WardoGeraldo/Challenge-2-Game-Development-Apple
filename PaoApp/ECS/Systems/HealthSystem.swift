@@ -65,88 +65,45 @@
 //    }
 //}
 
+
+//  HealthSystem.swift
 import UIKit
 import GameplayKit
 import SpriteKit
 
-// Applies damage to a block entity, updates its visuals, and reports death.
 class HealthSystem {
 
-    // Hits a block entity. Returns true if the block died.
     @discardableResult
     func hit(entity: GKEntity, ballCount: Int) -> Bool {
-
         guard let health = entity.component(ofType: HealthComponent.self),
               let render = entity.component(ofType: RenderComponent.self)
-        else {
-            return false
-        }
+        else { return false }
 
         let dead = health.hit()
-
         let node = render.node
 
         if dead {
-
-            // Disable physics immediately
             node.physicsBody = nil
-
         } else {
-
-            // Update HP label only
-            updateLabel(
-                in: node,
-                hp: health.health
-            )
-
-            // ===== HIT ANIMATION =====
-
-            // Stop previous animation biar ga numpuk
+            updateLabel(in: node, hp: health.health)
             node.removeAction(forKey: "hitAnim")
-
             let squash = SKAction.sequence([
-
-                .group([
-                    .scaleX(to: 1.08, duration: 0.04),
-                    .scaleY(to: 0.92, duration: 0.04)
-                ]),
-
-                .group([
-                    .scaleX(to: 0.94, duration: 0.05),
-                    .scaleY(to: 1.06, duration: 0.05)
-                ]),
-
-                .group([
-                    .scaleX(to: 1.0, duration: 0.06),
-                    .scaleY(to: 1.0, duration: 0.06)
-                ])
+                .group([.scaleX(to: 1.08, duration: 0.04), .scaleY(to: 0.92, duration: 0.04)]),
+                .group([.scaleX(to: 0.94, duration: 0.05), .scaleY(to: 1.06, duration: 0.05)]),
+                .group([.scaleX(to: 1.0,  duration: 0.06), .scaleY(to: 1.0,  duration: 0.06)])
             ])
-
-            // Flash putih dikit
             let flash = SKAction.sequence([
                 .fadeAlpha(to: 0.75, duration: 0.04),
-                .fadeAlpha(to: 1.0, duration: 0.08)
+                .fadeAlpha(to: 1.0,  duration: 0.08)
             ])
-
-            let hitAnim = SKAction.group([
-                squash,
-                flash
-            ])
-
-            node.run(
-                hitAnim,
-                withKey: "hitAnim"
-            )
+            node.run(.group([squash, flash]), withKey: "hitAnim")
         }
-
         return dead
     }
 
-    // Update HP text only
     private func updateLabel(in node: SKNode, hp: Int) {
-
         if let lbl = node.childNode(withName: "hp") as? SKLabelNode {
-
-class HealthSystem: GKComponentSystem<HealthComponent> {
-
+            lbl.text = "\(hp)"
+        }
+    }
 }

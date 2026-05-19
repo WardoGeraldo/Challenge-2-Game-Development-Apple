@@ -5,40 +5,30 @@
 //  Created by Saujana Shafi on 05/05/26.
 //
 
+//  BlockEntity.swift
 import Foundation
 import GameplayKit
 import SpriteKit
 
-// Represents a single block on the grid.
-// Rover blocks additionally carry a RoverComponent for horizontal movement.
 class BlockEntity: GKEntity {
-    init(
-        health: Int,
-    ) {
+    init(type: BlockType = .normal, health: Int, ballCount: Int, cell: CGFloat) {
         super.init()
 
-        // Visuals
-        let node = BlockShapeNode(scale: 1.0)
+        let node = BlockNode.make(type: type, hp: health, ballCount: ballCount, cell: cell)
         addComponent(RenderComponent(node))
-        addComponent(TransformComponent(node.position, 0))
-        addComponent(HealthComponent(hp))
+        addComponent(TransformComponent(CGPoint.zero, 0))
+        addComponent(HealthComponent(health))
         addComponent(BlockTypeComponent(type))
 
-        // Physics
-        let physicsBody = BlockPhysicsBody()
-        addComponent(PhysicsComponent(physicsBody))
-
-        // Logic
-        addComponent(HealthComponent(health))
-        addComponent(
-            TransformComponent(
-                CGPoint(x: 0, y: 0),
-                0
-            )
-        )
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: cell * 0.9, height: cell * 0.9))
+        body.isDynamic = false
+        body.friction = 0
+        body.restitution = 1
+        body.categoryBitMask    = PhysicsCategory.block
+        body.collisionBitMask   = PhysicsCategory.ball
+        body.contactTestBitMask = PhysicsCategory.ball
+        addComponent(PhysicsComponent(body))
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
