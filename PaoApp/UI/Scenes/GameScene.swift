@@ -4,7 +4,6 @@
 //
 //  Created by Saujana Shafi on 27/04/26.
 //
-
 import SpriteKit
 import UIKit
 import GameplayKit
@@ -15,25 +14,25 @@ import GameplayKit
 final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Layout (computed dynamically from screen size)
-    private var cell:       CGFloat = 44
-    private let gap: CGFloat = 0
-    private var step: CGFloat { cell }
-    private var gridOrigin: CGPoint = .zero
-    private var gridW:      CGFloat = 0
-    private var gridH:      CGFloat = 0
-    private var shootY:     CGFloat = 0
-    private var shootX:     CGFloat = 0
-    private var visualBlockSize: CGFloat {
+    var cell:       CGFloat = 44
+    let gap: CGFloat = 0
+    var step: CGFloat { cell }
+    var gridOrigin: CGPoint = .zero
+    var gridW:      CGFloat = 0
+    var gridH:      CGFloat = 0
+    var shootY:     CGFloat = 0
+    var shootX:     CGFloat = 0
+    var visualBlockSize: CGFloat {
         cell * 0.78
     }
-    private var playableGridWidth: CGFloat {
+    var playableGridWidth: CGFloat {
         cell * CGFloat(GameConstants.cols)
     }
 
-    private var playableGridHeight: CGFloat {
+    var playableGridHeight: CGFloat {
         cell * CGFloat(GameConstants.blockRows)
     }
-    private var playAreaRect: CGRect {
+    var playAreaRect: CGRect {
         CGRect(
             x: gridOrigin.x,
             y: gridOrigin.y,
@@ -41,54 +40,54 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             height: gridH
         )
     }
-    private var playAreaInset: CGFloat {
+    var playAreaInset: CGFloat {
         cell * 0.25
     }
 
     // MARK: - Game State
-    private var ballCount     = GameConstants.initialBallCount
-    private var turnNumber    = 0
-    private var portalCharges = 0
+    var ballCount     = GameConstants.initialBallCount
+    var turnNumber    = 0
+    var portalCharges = 0
 
     // Update time
     var lastUpdateTimeInterval: TimeInterval = 0
 
-    private var score: Int = 0
+    var score: Int = 0
     // Volley tracking
-    private var volleyTotal:  Int      = 0
-    private var volleyLanded: Int      = 0
-//    private var firstLandX:   CGFloat? = nil
-    private var landedPositions: [CGFloat] = []
-    private var shotAngle:    CGFloat  = .pi / 2
-    private var lastDT:       TimeInterval = 0
+    var volleyTotal:  Int      = 0
+    var volleyLanded: Int      = 0
+//    var firstLandX:   CGFloat? = nil
+    var landedPositions: [CGFloat] = []
+    var shotAngle:    CGFloat  = .pi / 2
+    var lastDT:       TimeInterval = 0
 
     // Portal warp band positions (set when portal volley is active)
-    private var portalEntryY: CGFloat? = nil
-    private var portalExitY:  CGFloat? = nil
+    var portalEntryY: CGFloat? = nil
+    var portalExitY:  CGFloat? = nil
 
     // MARK: - ECS
-    private var entityManager:   EntityManager!
-    private var movementSystem:  MovementSystem!
-    private var collisionSystem: CollisionSystem!
-    private var healthSystem:    HealthSystem!
-    private var controllerSystem: ControllerSystem!
+    var entityManager:   EntityManager!
+    var movementSystem:  MovementSystem!
+    var collisionSystem: CollisionSystem!
+    var healthSystem:    HealthSystem!
+    var controllerSystem: ControllerSystem!
 
     // MARK: - State Machine
-    private var stateMachine: GKStateMachine!
+    var stateMachine: GKStateMachine!
 
     // MARK: - Player entity (shooter marker)
-    private var playerEntity: PlayerEntity?
+    var playerEntity: PlayerEntity?
 
     // MARK: - HUD Nodes
-    private var countLabel: SKLabelNode!
-    private var ammoContainer = SKNode()
-    private var portalLabel: SKLabelNode!
-    private var turnLabel:   SKLabelNode!
-    private var nextMarker:  SKShapeNode?
-    private var aimDots: [SKShapeNode] = []
-    private var aimArrow: SKShapeNode?
-    private var landedBallNodes: [SKSpriteNode] = []
-    private var isVolleyActive = false
+    var countLabel: SKLabelNode!
+    var ammoContainer = SKNode()
+    var portalLabel: SKLabelNode!
+    var turnLabel:   SKLabelNode!
+    var nextMarker:  SKShapeNode?
+    var aimDots: [SKShapeNode] = []
+    var aimArrow: SKShapeNode?
+    var landedBallNodes: [SKSpriteNode] = []
+    var isVolleyActive = false
 
     // MARK: - AssetNode
     var bakpaoNode:  SKSpriteNode?
@@ -148,7 +147,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     //MARK: - Setup Assets
-    private func setupAssets() {
+    func setupAssets() {
         backgroundNode = SKSpriteNode(imageNamed: "backgroundNode")
         bgCheckeredNode = SKSpriteNode(imageNamed: "bgCheckeredNode")
         greenBlockNode = SKSpriteNode(imageNamed: "greenBlockNode")
@@ -164,7 +163,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: - Layout (screen-adaptive)
-    private func loadOverlayFromSKS() {
+    func loadOverlayFromSKS() {
 
         guard let scene = SKScene(fileNamed: "GameScene") else {
             print("GameScene.sks not found")
@@ -194,7 +193,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         print("frameNode:", gameFrameNode != nil)
     
     }
-    private func computeLayout(in view: SKView) {
+    func computeLayout(in view: SKView) {
 
         gridW = frame.width * 0.94
         cell = gridW / CGFloat(GameConstants.cols)
@@ -219,11 +218,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         ).y
     }
 
-    private func configureWalls() {
+    func configureWalls() {
         
     }
 
-    private func configureBlock() {
+    func configureBlock() {
         let block = BlockEntity(health: 5)
         entityManager.add(block)
     }
@@ -233,7 +232,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         lastUpdateTimeInterval = currentTime
 
         entityManager.update(deltaTime)
-    private func cellCenter(col: Int, row: Int) -> CGPoint {
+    func cellCenter(col: Int, row: Int) -> CGPoint {
 
         return CGPoint(
             x:
@@ -250,7 +249,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: - Background
-    private func buildBackground() {
+    func buildBackground() {
         backgroundColor = .black
         if let bg = backgroundNode?.copy() as? SKSpriteNode {
             
@@ -297,7 +296,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: - Walls (left, right, top — no floor so balls can land)
-    private func buildWalls() {
+    func buildWalls() {
 
         let left   = gridOrigin.x
         let right  = gridOrigin.x + gridW
@@ -332,7 +331,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     // MARK: - HUD
-    private func buildHUD() {
+    func buildHUD() {
         ammoContainer.zPosition = 10
         ammoContainer.name = "ui"
         addChild(ammoContainer)
@@ -391,7 +390,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     
-    private func refreshHUD() {
+    func refreshHUD() {
         updateAmmoIcons()
         ammoContainer.run(.sequence([
             .scale(to: 1.12, duration: 0.06),
@@ -400,7 +399,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
 
-    private func updateAmmoIcons() {
+    func updateAmmoIcons() {
         ammoContainer.removeAllChildren()
 
         // Kalau lagi volley → jangan tampilkan ammo bawah
@@ -481,7 +480,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         countLabel.text = ""
     }
     
-    private func animateAmmoGain(
+    func animateAmmoGain(
         from worldPosition: CGPoint,
         oldCount: Int,
         newCount: Int
@@ -626,7 +625,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         ]))
     }
     
-    private func updateAmmoContainerPosition(animated: Bool = true) {
+    func updateAmmoContainerPosition(animated: Bool = true) {
 
         let target = CGPoint(
             x: shootX,
@@ -652,7 +651,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - Shooter Marker
 
-    private func placeShooterMarker() {
+    func placeShooterMarker() {
         // Remove previous player entity
         if let prev = playerEntity {
             entityManager.remove(prev)
@@ -682,11 +681,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Block / Pickup Spawning
 
-    private func spawnInitialRows() {
+    func spawnInitialRows() {
         for r in 0...2 { spawnRow(r) }
     }
 
-    private func spawnRow(_ row: Int) {
+    func spawnRow(_ row: Int) {
         guard row < GameConstants.blockRows else { return }
 
         let shuffled  = Array(0..<GameConstants.cols).shuffled()
@@ -736,7 +735,7 @@ extension GameScene: SKPhysicsContactDelegate {
             )
         else {
             return
-    private func addBlockEntity(at pos: CGPoint, type: BlockType, hp: Int) {
+    func addBlockEntity(at pos: CGPoint, type: BlockType, hp: Int) {
         let node = BlockNode.make(type: type, hp: hp, ballCount: ballCount, cell: cell)
         node.position = pos
 
@@ -758,7 +757,7 @@ extension GameScene: SKPhysicsContactDelegate {
         ]))
     }
 
-    private func addPickupEntity(at pos: CGPoint, type: PickupType) {
+    func addPickupEntity(at pos: CGPoint, type: PickupType) {
         let node: SKNode
         switch type {
         case .ammo:
@@ -782,13 +781,13 @@ extension GameScene: SKPhysicsContactDelegate {
         )
     // MARK: - Gesture (Aiming)
 
-    private func addPanGesture(to view: SKView) {
+    func addPanGesture(to view: SKView) {
         view.addGestureRecognizer(
             UIPanGestureRecognizer(target: self, action: #selector(onPan(_:)))
         )
     }
     
-    private func updateAimDots(angle: CGFloat) {
+    func updateAimDots(angle: CGFloat) {
         guard let gridNode = bgCheckeredNode else { return }
 
         let gridFrame = gridNode.frame
@@ -995,7 +994,7 @@ extension GameScene: SKPhysicsContactDelegate {
         aimArrow = arrow
     }
     
-    @objc private func onPan(_ g: UIPanGestureRecognizer) {
+    @objc func onPan(_ g: UIPanGestureRecognizer) {
 
         guard stateMachine.currentState is GameAimingState else { return }
 
@@ -1029,7 +1028,7 @@ extension GameScene: SKPhysicsContactDelegate {
             break
         }
     }
-    private func removeAimDots() {
+    func removeAimDots() {
 
         aimArrow?.removeFromParent()
         aimArrow = nil
@@ -1042,7 +1041,7 @@ extension GameScene: SKPhysicsContactDelegate {
     }
 
     // Clamps angle to at least 8° from horizontal so balls always move upward
-    private func clampAngle(dx: CGFloat, dy: CGFloat) -> CGFloat {
+    func clampAngle(dx: CGFloat, dy: CGFloat) -> CGFloat {
         let min8 = CGFloat(8) * .pi / 180
         var a    = atan2(dy, dx)
         if dy <= 0 { a = dx >= 0 ? min8 : .pi - min8 }
@@ -1052,7 +1051,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // MARK: - Volley
 
-    private func startVolley(angle: CGFloat) {
+    func startVolley(angle: CGFloat) {
         isVolleyActive = true
         refreshHUD()
         shotAngle    = angle
@@ -1080,7 +1079,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
     }
 
-    private func fireOneBall() {
+    func fireOneBall() {
 //        let node = BallNode(radius: GameConstants.ballRadius)
         guard let texture = bakpaoNode?.texture else { return }
 
@@ -1103,7 +1102,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // Places entry (top half) and exit (bottom half) warp rings.
     // Balls passing through the entry ring are teleported to the exit band in update().
-    private func activatePortalVolley() {
+    func activatePortalVolley() {
         var occupied = Set<String>()
         entityManager.entities(with: BlockTypeComponent.self).forEach {
             guard let render = $0.component(ofType: RenderComponent.self) else { return }
@@ -1167,7 +1166,7 @@ extension GameScene: SKPhysicsContactDelegate {
         ]))
     }
 
-    private func clearPortalRings() {
+    func clearPortalRings() {
         enumerateChildNodes(withName: "portalRing") { n, _ in n.removeFromParent() }
         portalEntryY = nil
         portalExitY  = nil
@@ -1289,7 +1288,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // MARK: - Block Hit Handling
 
-    private func handleBlockHit(node: SKNode) {
+    func handleBlockHit(node: SKNode) {
         guard let entity = entityManager.entity(forNode: node) else { return }
         animateBlockHit(node)
 
@@ -1326,7 +1325,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
     }
     
-    private func animateBlockHit(_ node: SKNode) {
+    func animateBlockHit(_ node: SKNode) {
 
         guard let sprite =
             node.childNode(withName: "blockSprite")
@@ -1369,7 +1368,7 @@ extension GameScene: SKPhysicsContactDelegate {
         node.run(shake)
     }
 
-    private func animateBlockDeath(node: SKNode, isBomb: Bool) {
+    func animateBlockDeath(node: SKNode, isBomb: Bool) {
         let scale: CGFloat = isBomb ? 1.5 : 1.2
         node.run(.sequence([
             .group([
@@ -1382,7 +1381,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // MARK: - Bomb Explosion
 
-    private func explode(at pos: CGPoint) {
+    func explode(at pos: CGPoint) {
         // Expanding blast ring
         let ring = SKShapeNode(circleOfRadius: 4)
         ring.fillColor   = .clear
@@ -1429,7 +1428,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // MARK: - Pickup Collection
 
-    private func handlePickupCollected(node: SKNode) {
+    func handlePickupCollected(node: SKNode) {
         guard let entity = entityManager.entity(forNode: node) else { return }
         guard let consumable = entity.component(ofType: ConsumableComponent.self) else { return }
 
@@ -1472,7 +1471,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
     }
 
-    private func floatLabel(_ text: String, at pos: CGPoint, color: UIColor) {
+    func floatLabel(_ text: String, at pos: CGPoint, color: UIColor) {
         let lbl = SKLabelNode(fontNamed: GameConstants.fontName)
         lbl.text      = text
         lbl.fontSize  = 18
@@ -1490,7 +1489,7 @@ extension GameScene: SKPhysicsContactDelegate {
     }
 
     // MARK: - Ball Landing
-    private func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
+    func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
 
         // Clamp posisi landing
         let lo = gridOrigin.x + GameConstants.ballRadius + gap
@@ -1538,7 +1537,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
     }
     
-    private func showNextMarker(x: CGFloat) {
+    func showNextMarker(x: CGFloat) {
 
         nextMarker?.removeFromParent()
 
@@ -1575,7 +1574,7 @@ extension GameScene: SKPhysicsContactDelegate {
         nextMarker = dot
     }
     
-    private func calculateBestLandingX() -> CGFloat {
+    func calculateBestLandingX() -> CGFloat {
 
         guard !landedPositions.isEmpty else {
             return frame.midX
@@ -1612,7 +1611,7 @@ extension GameScene: SKPhysicsContactDelegate {
     }
     
     
-    private func repositionLandedBallsAroundPlayer() {
+    func repositionLandedBallsAroundPlayer() {
 
         guard !landedBallNodes.isEmpty else { return }
 
@@ -1674,7 +1673,7 @@ extension GameScene: SKPhysicsContactDelegate {
     }
 
     // MARK: - End Volley / Advance Board
-    private func endVolley() {
+    func endVolley() {
 
         // Cari posisi landing paling ramai
         shootX = calculateBestLandingX()
@@ -1747,7 +1746,7 @@ extension GameScene: SKPhysicsContactDelegate {
 
     // Moves all blocks/pickups down one row; removes anything that would land at/below
     // the shooter row. Spawns a fresh row at the top after 0.08s.
-    private func advanceBoard() {
+    func advanceBoard() {
         let allBoardEntities = entityManager.entities(with: BlockTypeComponent.self)
             + entityManager.entities(with: ConsumableComponent.self)
 
@@ -1783,7 +1782,7 @@ extension GameScene: SKPhysicsContactDelegate {
             .run { [weak self] in self?.spawnRow(0) }
         ]))
     }
-    private func clampToPlayArea(_ point: CGPoint) -> CGPoint {
+    func clampToPlayArea(_ point: CGPoint) -> CGPoint {
 
         let minX = gridOrigin.x + playAreaInset
         let maxX = gridOrigin.x + gridW - playAreaInset
