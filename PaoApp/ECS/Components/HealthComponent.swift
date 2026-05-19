@@ -8,8 +8,23 @@
 import Foundation
 import GameplayKit
 
+// MARK: - HealthComponent
+
 class HealthComponent: GKComponent {
-    var health: Int
+    private(set) var health: Int
+    let maxHealth: Int
+
+    var isDead: Bool { health <= 0 }
+
+    init(_ health: Int) {
+        self.health    = health
+        self.maxHealth = health
+        super.init()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     var label: SKLabelNode
 
@@ -22,11 +37,13 @@ class HealthComponent: GKComponent {
     func hit(demage: Int = 1) {
         self.health -= demage
     }
+}
 
-    init(
-        _ health: Int,
-    ) {
-        self.health = health
+// MARK: - BlockTypeComponent
+
+// Stores the block's behavioural type (defined in BlockNodes.swift)
+class BlockTypeComponent: GKComponent {
+    let blockType: BlockType
 
         self.label = LabelNode(name: "healthLabel")
 

@@ -7,6 +7,8 @@
 
 import Foundation
 import GameplayKit
+import SpriteKit
+import CoreGraphics
 
 // TODO: Change the GKComponent to PositionComponent, ControlComponent
 class ControllerSystem: GKComponentSystem<ControlComponent> {

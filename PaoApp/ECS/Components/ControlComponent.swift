@@ -7,7 +7,9 @@
 
 import Foundation
 import GameplayKit
+import CoreGraphics
 
+// Holds the player's current aiming state
 class ControlComponent: GKComponent {
     var pointTo: CGPoint
 
