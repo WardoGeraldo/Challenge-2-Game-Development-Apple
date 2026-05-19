@@ -17,3 +17,34 @@ class PlayerNode: SKNode {
         fatalError("init(coder:) has not been implemented")
     }
 }
+
+class PlayerShapeNode: SKShapeNode {
+    init(scale: CGFloat) {
+        super.init()
+
+        let size = CGSize(width: kCell * scale, height: kCell * scale)
+        let rect = CGRect(
+            x: -size.width / 2,
+            y: -size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+
+        self.path = CGPath(
+            roundedRect: rect,
+            cornerWidth: 8 * scale,
+            cornerHeight: 8 * scale,
+            transform: nil
+        )
+
+        self.fillColor = .blue
+        self.strokeColor = .white
+
+        self.lineWidth = 2
+        self.name = "player"
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}

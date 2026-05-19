@@ -19,3 +19,50 @@ class BallNode: SKNode {
 }
 
 // TODO: Other ball variants
+class BallShapeNode: SKShapeNode {
+    /// Use scale to handle different size of screens
+    init(scale: CGFloat) {
+        super.init()
+
+        let diameter = kCell * scale / 2
+        let rect = CGRect(
+            x: -diameter / 2,
+            y: -diameter / 2,
+            width: diameter,
+            height: diameter
+        )
+
+        self.path = CGPath(
+            ellipseIn: rect,
+            transform: nil
+        )
+
+        self.fillColor = .red
+        self.strokeColor = .white
+
+        self.lineWidth = 2
+        self.name = "ball"
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+func makeBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
+    let radius = kCell * scale / 4
+    let body = SKPhysicsBody(circleOfRadius: radius)
+
+    body.isDynamic = false
+    body.affectedByGravity = false
+
+    body.friction = 0.0
+    body.linearDamping = 0.0
+    body.restitution = 1.0
+
+    body.categoryBitMask = PhysicsCategory.ball
+    body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.item
+    body.collisionBitMask = PhysicsCategory.block | PhysicsCategory.wall
+
+    return body
+}
