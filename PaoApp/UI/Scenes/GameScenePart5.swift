@@ -286,7 +286,7 @@ extension GameScene: SKPhysicsContactDelegate {
     
     @objc func onPan(_ g: UIPanGestureRecognizer) {
         
-        guard stateMachine.currentState is GameAimingState else { return }
+        guard stateMachine.currentState is GameAimState else { return }
         
         let raw = g.translation(in: view)
         

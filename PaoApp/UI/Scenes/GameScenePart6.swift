@@ -487,7 +487,7 @@ extension GameScene {
             .wait(forDuration: 0.62),
             
                 .run { [weak self] in
-                    self?.stateMachine.enter(GameAimingState.self)
+                    self?.stateMachine.enter(GameAimState.self)
                 }
         ]))
     }

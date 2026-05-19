@@ -116,12 +116,12 @@ final class GameScene: SKScene {
         stateMachine = GKStateMachine(states: [
             GameStartState(entityManager),
             GameIdleState(entityManager),
-            GameAimingState(entityManager),
+            GameAimState(entityManager),
             GameFlyingState(entityManager),
             GameTurnEndState(entityManager),
             GameOverState(entityManager),
         ])
-        stateMachine.enter(GameAimingState.self)
+        stateMachine.enter(GameAimState.self)
         
         physicsWorld.gravity         = .zero
         physicsWorld.contactDelegate = self
