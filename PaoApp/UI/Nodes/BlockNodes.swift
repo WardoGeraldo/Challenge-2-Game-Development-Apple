@@ -87,82 +87,81 @@ class BlockNode: SKNode {
 //        addChild(hpLabel(hp: hp, fontSize: cell * 0.38))
 //    }
     
-    private func buildNormal(hp: Int, ballCount: Int, cell: CGFloat) {
+    private func buildNormal(
+        hp: Int,
+        ballCount: Int,
+        cell: CGFloat
+    ) {
 
-        // Main sprite dari asset
-        let sprite = SKSpriteNode(imageNamed: "green")
+        let visualSize = cell
+
+        //
+        // BLOCK SPRITE
+        //
+        let sprite = SKSpriteNode(imageNamed: "greenBlockNode")
 
         sprite.size = CGSize(
-            width: cell,
-            height: cell
+            width: visualSize,
+            height: visualSize
         )
 
         sprite.name = "blockSprite"
-        sprite.colorBlendFactor = 0
-        sprite.color = .white
 
-        // Sedikit rounded feel
+        sprite.zPosition = 1
+
         sprite.texture?.filteringMode = .nearest
 
-        // Shadow / glow tipis
-        let shadow = SKShapeNode(
-            rect: CGRect(
-                x: -cell/2,
-                y: -cell/2,
-                width: cell,
-                height: cell
-            ),
-            cornerRadius: 10
-        )
+        addChild(sprite)
 
-        shadow.fillColor = .clear
-
-        shadow.strokeColor = UIColor(
-            white: 1,
-            alpha: 0.08
-        )
-
-        shadow.lineWidth = 1.5
-
-        shadow.zPosition = -1
-
-        // Physics
-        physicsBody = blockBody(
-            size: CGSize(
-                width: cell,
-                height: cell
+        //
+        // PHYSICS
+        //
+        physicsBody = SKPhysicsBody(
+            rectangleOf: CGSize(
+                width: visualSize,
+                height: visualSize
             )
         )
 
-        addChild(shadow)
-        addChild(sprite)
+        physicsBody?.isDynamic = false
+        physicsBody?.friction = 0
+        physicsBody?.restitution = 1
 
-        // HP Label
+        physicsBody?.categoryBitMask = PhysicsCategory.block
+
+        physicsBody?.collisionBitMask =
+            PhysicsCategory.ball
+
+        physicsBody?.contactTestBitMask =
+            PhysicsCategory.ball
+
+        //
+        // HP LABEL
+        //
         let hpNode = hpLabel(
             hp: hp,
-            fontSize: cell * 0.34
+            fontSize: visualSize * 0.34
         )
 
-        hpNode.zPosition = 3
+        hpNode.zPosition = 5
 
         addChild(hpNode)
 
         //
-        // Idle floating animation
+        // FLOAT ANIMATION
         //
-
         let float = SKAction.sequence([
 
             .moveBy(
                 x: 0,
-                y: 3,
-                duration: 1.2
+                y: 2,
+                duration: 1.0
             ),
 
             .moveBy(
                 x: 0,
-                y: -3,
-                duration: 1.2
+                y: -2,
+                duration: 1.0
             )
         ])
 

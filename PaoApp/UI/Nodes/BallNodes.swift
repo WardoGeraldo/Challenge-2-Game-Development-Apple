@@ -13,34 +13,67 @@ import UIKit
 
 // Flying bakpao — uses the bakpaoAmmo asset.
 // CCD (usesPreciseCollisionDetection) prevents tunnelling through blocks at high speed.
-class BallNode: SKSpriteNode {
-    init(radius: CGFloat) {
+//class BallNode: SKSpriteNode {
+//    init(radius: CGFloat) {
+//        super.init(
+//            texture: SKTexture(imageNamed: "bakpaoAmmo"),
+//            color: .clear,
+//            size: CGSize(width: radius * 2, height: radius * 2)
+//        )
+//        name      = "ball"
+//        zPosition = 7
+//        setupPhysics(radius: radius)
+//    }
+//
+//    required init?(coder: NSCoder) {
+//        fatalError("init(coder:) has not been implemented")
+//    }
+
+final class BallNode: SKSpriteNode {
+
+    init(texture: SKTexture, radius: CGFloat) {
+
         super.init(
-            texture: SKTexture(imageNamed: "bakpaoAmmo"),
+            texture: texture,
             color: .clear,
-            size: CGSize(width: radius * 2, height: radius * 2)
+            size: CGSize(
+                width: radius * 2,
+                height: radius * 2
+            )
         )
-        name      = "ball"
+
+        name = "ball"
         zPosition = 7
+
         setupPhysics(radius: radius)
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    required init?(coder aDecoder: NSCoder) {
+        fatalError()
     }
 
     private func setupPhysics(radius: CGFloat) {
+
         let body = SKPhysicsBody(circleOfRadius: radius)
-        body.friction                      = 0
-        body.linearDamping                 = 0
-        body.restitution                   = 1
-        body.allowsRotation                = false
-        body.isDynamic                     = true
-        // CCD prevents fast ball from tunnelling through thin blocks or walls
+
+        body.friction = 0
+        body.linearDamping = 0
+        body.restitution = 1
+        body.allowsRotation = false
+        body.isDynamic = true
+
         body.usesPreciseCollisionDetection = true
-        body.categoryBitMask               = PhysicsCategory.ball
-        body.collisionBitMask              = PhysicsCategory.wall | PhysicsCategory.block
-        body.contactTestBitMask            = PhysicsCategory.block | PhysicsCategory.pickup
+
+        body.categoryBitMask = PhysicsCategory.ball
+
+        body.collisionBitMask =
+            PhysicsCategory.wall
+            | PhysicsCategory.block
+
+        body.contactTestBitMask =
+            PhysicsCategory.block
+            | PhysicsCategory.pickup
+
         physicsBody = body
     }
 }
@@ -53,7 +86,7 @@ class AmmoPickupNode: SKNode {
         super.init()
         let size = cell * 0.82
 
-        let sprite = SKSpriteNode(imageNamed: "bakpaoAmmo")
+        let sprite = SKSpriteNode(imageNamed: "bakpaoNode")
         sprite.size = CGSize(width: size, height: size)
         addChild(sprite)
 

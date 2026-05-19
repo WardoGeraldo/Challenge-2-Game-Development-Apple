@@ -16,13 +16,34 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Layout (computed dynamically from screen size)
     private var cell:       CGFloat = 44
-    private let gap:        CGFloat = GameConstants.gap
-    private var step:       CGFloat { cell + gap }
+    private let gap: CGFloat = 0
+    private var step: CGFloat { cell }
     private var gridOrigin: CGPoint = .zero
     private var gridW:      CGFloat = 0
     private var gridH:      CGFloat = 0
     private var shootY:     CGFloat = 0
     private var shootX:     CGFloat = 0
+    private var visualBlockSize: CGFloat {
+        cell * 0.78
+    }
+    private var playableGridWidth: CGFloat {
+        cell * CGFloat(GameConstants.cols)
+    }
+
+    private var playableGridHeight: CGFloat {
+        cell * CGFloat(GameConstants.blockRows)
+    }
+    private var playAreaRect: CGRect {
+        CGRect(
+            x: gridOrigin.x,
+            y: gridOrigin.y,
+            width: gridW,
+            height: gridH
+        )
+    }
+    private var playAreaInset: CGFloat {
+        cell * 0.25
+    }
 
     // MARK: - Game State
     private var ballCount     = GameConstants.initialBallCount
@@ -66,9 +87,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var isVolleyActive = false
 
     // MARK: - AssetNode
+    var bakpaoNode:  SKSpriteNode?
+    var pandaNode: SKSpriteNode?
+    var bgCheckeredNode:  SKSpriteNode?
+    var backgroundNode: SKSpriteNode?
+    var greenBlockNode: SKSpriteNode?
+    var yellowBlockNode: SKSpriteNode?
+    var pinkBlockNode: SKSpriteNode?
+    var collectBakpaoNode: SKSpriteNode?
+    var bgBrownNode: SKSpriteNode?
+    var gameFrameNode: SKSpriteNode?
+    var pandaFrames: [SKTexture] = []
+
 
     // MARK: - didMove
     override func didMove(to view: SKView) {
+        scaleMode = .resizeFill
         entityManager    = EntityManager(scene: self)
         movementSystem   = MovementSystem()
         collisionSystem  = CollisionSystem()
@@ -87,12 +121,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.contactDelegate = self
 
         computeLayout(in: view)
+        setupAssets()
+        
         buildBackground()
+        loadOverlayFromSKS()
         buildWalls()
         buildHUD()
         placeShooterMarker()
         spawnInitialRows()
         addPanGesture(to: view)
+        
         
         for family in UIFont.familyNames.sorted() {
 
@@ -104,183 +142,186 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
     }
+    
+    //MARK: - Setup Assets
+    private func setupAssets() {
+        backgroundNode = SKSpriteNode(imageNamed: "backgroundNode")
+        bgCheckeredNode = SKSpriteNode(imageNamed: "bgCheckeredNode")
+        greenBlockNode = SKSpriteNode(imageNamed: "greenBlockNode")
+        pinkBlockNode = SKSpriteNode(imageNamed: "pinkBlockNode")
+        yellowBlockNode = SKSpriteNode(imageNamed: "yellowBlockNode")
+        pandaNode = SKSpriteNode(imageNamed: "pandaNode")
+        collectBakpaoNode = SKSpriteNode(imageNamed: "bakpaoNode")
+        bakpaoNode = SKSpriteNode(imageNamed: "bakpaoNode")
+        pandaFrames = [
+            SKTexture(imageNamed: "panda_1"),
+            SKTexture(imageNamed: "panda_2")
+        ]
+    }
 
     // MARK: - Layout (screen-adaptive)
+    private func loadOverlayFromSKS() {
 
-    // Cell size is computed to perfectly fill the available safe area,
-    // fixing the prototype's fixed-size scaling issue on different devices.
+        guard let scene = SKScene(fileNamed: "GameScene") else {
+            print("GameScene.sks not found")
+            return
+        }
+
+        guard let overlayNode = scene.childNode(withName: "//overlayNode") else {
+            print("overlayNode not found")
+            return
+        }
+
+        let overlayCopy = overlayNode.copy() as! SKNode
+
+        overlayCopy.position = CGPoint(
+            x: gridOrigin.x + gridW / 2,
+            y: gridOrigin.y + gridH / 2 + 100
+        )
+
+        overlayCopy.zPosition = -3
+
+        addChild(overlayCopy)
+
+        bgBrownNode = overlayCopy.childNode(withName: "//bgBrownNode") as? SKSpriteNode
+        gameFrameNode = overlayCopy.childNode(withName: "//gameFrameNode") as? SKSpriteNode
+
+        print("bgBrownNode:", bgBrownNode != nil)
+        print("frameNode:", gameFrameNode != nil)
+    
+    }
     private func computeLayout(in view: SKView) {
-        let st = max(view.safeAreaInsets.top,    50)
-        let sb = max(view.safeAreaInsets.bottom, 34)
-        let totalRows = GameConstants.blockRows + 1   // block rows + shooter row
 
-        // Largest cell that fits width: (W - (cols+1)×gap) / cols
-        let dynCellW = (frame.width - CGFloat(GameConstants.cols + 1) * gap)
-                     / CGFloat(GameConstants.cols)
+        gridW = frame.width * 0.94
+        cell = gridW / CGFloat(GameConstants.cols)
 
-        // Largest cell that fits height: (H_avail - (rows+1)×gap) / rows
-        let availH   = frame.height - st - sb - 56   // 56pt for HUD row + breathing room
-        let dynCellH = (availH - CGFloat(totalRows + 1) * gap) / CGFloat(totalRows)
+        gridH = cell * CGFloat(GameConstants.blockRows + 1)
 
-        cell  = floor(min(dynCellW, dynCellH))
-        gridW = step * CGFloat(GameConstants.cols) + gap
-        gridH = step * CGFloat(totalRows) + gap
+        // sementara center dulu
+        let gridX = frame.midX - gridW / 2
+        let gridY = frame.midY - gridH / 2 - 50
 
         gridOrigin = CGPoint(
-            x: frame.midX - gridW / 2,
-            y: frame.maxY - st - 16 - gridH
+            x: gridX,
+            y: gridY
         )
-        shootY = cellCenter(col: 0, row: GameConstants.blockRows).y
+
         shootX = frame.midX
+
+        // posisi shooter
+        shootY = cellCenter(
+            col: 0,
+            row: GameConstants.blockRows
+        ).y
     }
 
     private func cellCenter(col: Int, row: Int) -> CGPoint {
-        CGPoint(
-            x: gridOrigin.x + gap + cell / 2 + CGFloat(col) * step,
-            y: gridOrigin.y + gridH - gap - cell / 2 - CGFloat(row) * step
+
+        return CGPoint(
+            x:
+                gridOrigin.x
+                + CGFloat(col) * cell
+                + cell / 2,
+
+            y:
+                gridOrigin.y
+                + gridH
+                - CGFloat(row) * cell
+                - cell / 2
         )
     }
 
     // MARK: - Background
-
     private func buildBackground() {
-        backgroundColor = UIColor(red: 0.09, green: 0.11, blue: 0.16, alpha: 1)
-
-        // Main grid panel
-        let panel = SKShapeNode(
-            rect: CGRect(x: gridOrigin.x, y: gridOrigin.y, width: gridW, height: gridH),
-            cornerRadius: 14
-        )
-        panel.fillColor   = UIColor(white: 1, alpha: 0.03)
-        panel.strokeColor = UIColor(white: 1, alpha: 0.10)
-        panel.lineWidth   = 1.5
-        panel.zPosition   = 0
-        panel.name        = "ui"
-        addChild(panel)
-
-        // Ghost cells for block area
-        for r in 0..<GameConstants.blockRows {
-            for c in 0..<GameConstants.cols {
-                addGhostCell(col: c, row: r, isShooterRow: false)
-            }
+        backgroundColor = .black
+        if let bg = backgroundNode?.copy() as? SKSpriteNode {
+            
+            bg.position = CGPoint(
+                x: frame.midX,
+                y: frame.midY
+            )
+            
+            bg.size = frame.size
+            
+            bg.zPosition = -100
+            
+            addChild(bg)
         }
-        // Ghost cells for shooter row
-        for c in 0..<GameConstants.cols {
-            addGhostCell(col: c, row: GameConstants.blockRows, isShooterRow: true)
+  
+        if let grid = bgCheckeredNode?.copy() as? SKSpriteNode {
+            self.bgCheckeredNode = grid
+        
+            let textureSize = grid.texture?.size() ?? CGSize(
+                width: 100,
+                height: 100
+            )
+            let targetWidth = frame.width * 0.94
+            let aspectRatio =
+            textureSize.height / textureSize.width
+            
+            let targetHeight =
+            targetWidth * aspectRatio
+            
+            gridW = targetWidth
+            gridH = targetHeight
+            
+            grid.anchorPoint = CGPoint(x: 0, y: 0)
+            grid.position = gridOrigin
+            grid.size = CGSize(
+                width: gridW,
+                height: gridH
+            )
+            grid.zPosition = 0
+            grid.name = "grid"
+            
+            addChild(grid)
         }
-
-        // Divider line between block area and shooter row
-        let divY = shootY + cell / 2 + gap / 2
-        let div  = SKShapeNode()
-        let dp   = CGMutablePath()
-        dp.move(to:    CGPoint(x: gridOrigin.x + 10,         y: divY))
-        dp.addLine(to: CGPoint(x: gridOrigin.x + gridW - 10, y: divY))
-        div.path        = dp
-        div.strokeColor = UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.25)
-        div.lineWidth   = 1
-        div.name        = "ui"
-        addChild(div)
-    }
-
-    private func addGhostCell(col: Int, row: Int, isShooterRow: Bool) {
-        let g = SKShapeNode(
-            rect: CGRect(x: -cell/2, y: -cell/2, width: cell, height: cell),
-            cornerRadius: 6
-        )
-        g.position    = cellCenter(col: col, row: row)
-        g.fillColor   = isShooterRow
-            ? UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.04)
-            : UIColor(white: 1, alpha: 0.02)
-        g.strokeColor = isShooterRow
-            ? UIColor(red: 0.4, green: 0.65, blue: 1.0, alpha: 0.15)
-            : UIColor(white: 1, alpha: 0.05)
-        g.lineWidth   = 0.5
-        g.zPosition   = 1
-        g.name        = "ui"
-        addChild(g)
     }
 
     // MARK: - Walls (left, right, top — no floor so balls can land)
-
     private func buildWalls() {
-        let l = gridOrigin.x,    r = gridOrigin.x + gridW
-        let b = gridOrigin.y,    t = gridOrigin.y + gridH
+
+        let left   = gridOrigin.x
+        let right  = gridOrigin.x + gridW
+        let bottom = gridOrigin.y
+        let top    = gridOrigin.y + gridH
 
         let edges: [(CGPoint, CGPoint)] = [
-            (CGPoint(x: l, y: b), CGPoint(x: l, y: t)),   // left
-            (CGPoint(x: r, y: b), CGPoint(x: r, y: t)),   // right
-            (CGPoint(x: l, y: t), CGPoint(x: r, y: t))    // top
+
+            // LEFT
+            (CGPoint(x: left, y: bottom),
+             CGPoint(x: left, y: top)),
+
+            // RIGHT
+            (CGPoint(x: right, y: bottom),
+             CGPoint(x: right, y: top)),
+
+            // TOP
+            (CGPoint(x: left, y: top),
+             CGPoint(x: right, y: top))
         ]
 
         for (a, b) in edges {
             let wall = SKNode()
             wall.physicsBody = SKPhysicsBody(edgeFrom: a, to: b)
-            wall.physicsBody?.friction         = 0
-            wall.physicsBody?.restitution      = 1
-            wall.physicsBody?.categoryBitMask  = PhysicsCategory.wall
+            wall.physicsBody?.friction = 0
+            wall.physicsBody?.restitution = 1
+            wall.physicsBody?.categoryBitMask = PhysicsCategory.wall
             wall.physicsBody?.collisionBitMask = PhysicsCategory.ball
-            wall.name = "wall"
+            wall.physicsBody?.contactTestBitMask = PhysicsCategory.ball
             addChild(wall)
         }
     }
-
+    
     // MARK: - HUD
-
-//    private func buildHUD() {
-//        let iconSize = GameConstants.ballRadius * 2
-//        let iconX    = gridOrigin.x + gap + iconSize / 2 + 2
-//
-//        // Ball icon indicator — same bakpao asset as the thrown ball
-//        let ballIcon = SKSpriteNode(imageNamed: "bakpaoAmmo")
-//        ballIcon.size     = CGSize(width: iconSize, height: iconSize)
-//        ballIcon.position = CGPoint(x: iconX, y: shootY)
-//        ballIcon.zPosition = 10
-//        ballIcon.name     = "ui"
-//        addChild(ballIcon)
-//
-//        // Ball count label
-//        countLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-//        countLabel.fontSize                = 16
-//        countLabel.fontColor               = UIColor(white: 0.9, alpha: 1)
-//        countLabel.text                    = "×\(ballCount)"
-//        countLabel.horizontalAlignmentMode = .left
-//        countLabel.verticalAlignmentMode   = .center
-//        countLabel.position                = CGPoint(x: iconX + iconSize / 2 + 6, y: shootY)
-//        countLabel.zPosition               = 10
-//        addChild(countLabel)
-//
-//        // Portal charge indicator (hidden until collected)
-//        portalLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-//        portalLabel.fontSize                = 14
-//        portalLabel.fontColor               = UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1)
-//        portalLabel.text                    = ""
-//        portalLabel.horizontalAlignmentMode = .left
-//        portalLabel.verticalAlignmentMode   = .center
-//        portalLabel.position                = CGPoint(x: iconX + iconSize / 2 + 52, y: shootY)
-//        portalLabel.zPosition               = 10
-//        addChild(portalLabel)
-//
-//        // Turn counter
-//        turnLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-//        turnLabel.fontSize                = 13
-//        turnLabel.fontColor               = UIColor(white: 0.5, alpha: 1)
-//        turnLabel.text                    = "TURN 1"
-//        turnLabel.horizontalAlignmentMode = .right
-//        turnLabel.verticalAlignmentMode   = .center
-//        turnLabel.position                = CGPoint(x: gridOrigin.x + gridW - 6, y: shootY)
-//        turnLabel.zPosition               = 10
-//        addChild(turnLabel)
-//    }
-
     private func buildHUD() {
-
         ammoContainer.zPosition = 10
         ammoContainer.name = "ui"
         addChild(ammoContainer)
 
         ammoContainer.position = CGPoint(
-            x: shootX,
-            y: shootY - 4
+            x: shootX - 24,
+            y: shootY
         )
 
         // Label jumlah bakpao
@@ -330,68 +371,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         refreshHUD()
     }
-//    private func refreshHUD() {
-//        countLabel.text = "×\(ballCount)"
-//        countLabel.run(.sequence([
-//            .scale(to: 1.5, duration: 0.07),
-//            .scale(to: 1.0, duration: 0.10)
-//        ]))
-//        turnLabel.text  = "TURN \(turnNumber + 1)"
-//        portalLabel.text = portalCharges > 0 ? "⬡ ×\(portalCharges)" : ""
-//    }
+
     
     private func refreshHUD() {
-
         updateAmmoIcons()
-
         ammoContainer.run(.sequence([
             .scale(to: 1.12, duration: 0.06),
             .scale(to: 1.0, duration: 0.08)
         ]))
-
-        turnLabel.text = "TURN \(turnNumber + 1)"
-
-        portalLabel.text = portalCharges > 0
-            ? "⬡ ×\(portalCharges)"
-            : ""
     }
     
-//    private func updateAmmoIcons() {
-//
-//        ammoContainer.removeAllChildren()
-//
-//        let maxVisible = 5
-//        let visibleCount = min(ballCount, maxVisible)
-//
-//        let size: CGFloat = GameConstants.ballRadius * 1.8
-//        let spacing: CGFloat = size * 0.72
-//
-//        for i in 0..<visibleCount {
-//
-//            let sprite = SKSpriteNode(imageNamed: "bakpaoAmmo")
-//
-//            sprite.size = CGSize(width: size, height: size)
-//
-//            sprite.position = CGPoint(
-//                x: CGFloat(i) * spacing,
-//                y: 0
-//            )
-//
-//            sprite.zRotation = CGFloat.random(in: -0.15...0.15)
-//
-//            ammoContainer.addChild(sprite)
-//        }
-//
-//        // Posisi text jumlah
-//        countLabel.text = "x\(ballCount)"
-//
-//        countLabel.position = CGPoint(
-//            x: CGFloat(visibleCount) * spacing + 8,
-//            y: 0
-//        )
-//    }
-    private func updateAmmoIcons() {
 
+    private func updateAmmoIcons() {
         ammoContainer.removeAllChildren()
 
         // Kalau lagi volley → jangan tampilkan ammo bawah
@@ -401,11 +392,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         let size: CGFloat = GameConstants.ballRadius * 1.75
-
         let maxWidth: CGFloat = 120
-
         let spacing: CGFloat
-
+       
         if ballCount <= 5 {
             spacing = size * 0.72
         } else if ballCount <= 10 {
@@ -415,9 +404,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         let totalWidth = CGFloat(max(ballCount - 1, 0)) * spacing
-
         let clampedWidth = min(totalWidth, maxWidth)
-
         let finalSpacing: CGFloat
 
         if ballCount > 1 {
@@ -433,7 +420,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         for i in 0..<ballCount {
 
-            let sprite = SKSpriteNode(imageNamed: "bakpaoAmmo")
+            guard let sprite = bakpaoNode?.copy() as? SKSpriteNode else {
+                continue
+            }
 
             sprite.size = CGSize(width: size, height: size)
 
@@ -487,7 +476,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let hudSize = GameConstants.ballRadius * 1.75
 
         // Spawn di scene langsung
-        let flying = SKSpriteNode(imageNamed: "bakpaoAmmo")
+        guard let flying = collectBakpaoNode?.copy() as? SKSpriteNode else {
+            return
+        }
 
         flying.size = CGSize(
             width: pickupSize,
@@ -649,12 +640,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             entityManager.remove(prev)
         }
 
-        let node = PlayerNode(radius: GameConstants.ballRadius)
+        let node = PlayerNode(
+            radius: GameConstants.ballRadius
+        )
         node.position = CGPoint(x: shootX, y: shootY)
 
         let entity = PlayerEntity(node: node)
         entityManager.add(entity)
         playerEntity = entity
+        guard let panda = pandaNode else { return }
+            let target = CGPoint(x: shootX, y: shootY + 30)
+            if panda.parent == nil {
+                panda.size = CGSize(width: cell * 1.3, height: cell * 1.3)
+                panda.zPosition = 5
+                panda.position = target
+                addChild(panda)
+            } else {
+                let move = SKAction.move(to: target, duration: 0.22)
+                move.timingMode = .easeInEaseOut
+                panda.run(move)
+            }
     }
 
     // MARK: - Block / Pickup Spawning
@@ -742,49 +747,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             UIPanGestureRecognizer(target: self, action: #selector(onPan(_:)))
         )
     }
-
-//    @objc private func onPan(_ g: UIPanGestureRecognizer) {
-//        guard stateMachine.currentState is GameAimingState else { return }
-//
-//        let raw   = g.translation(in: view)
-//        let angle = clampAngle(dx: raw.x, dy: -raw.y)
-//
-//        switch g.state {
-//        case .began, .changed:
-////            controllerSystem.updateAimLine(
-////                from: CGPoint(x: shootX, y: shootY),
-////                angle: angle,
-////                topY: gridOrigin.y + gridH
-////            )
-//            
-//            controllerSystem.updateAimDots(
-//                from: CGPoint(x: shootX, y: shootY),
-//                angle: angle,
-//                topY: gridOrigin.y + gridH
-//            )
-//
-//            
-//            // Store angle in player control component
-//            playerEntity?.component(ofType: ControlComponent.self)?.shotAngle = angle
-//
-//        case .ended, .cancelled:
-////            controllerSystem.removeAimLine()
-//            controllerSystem.removeAimDots()
-//            shotAngle = angle
-//            startVolley(angle: angle)
-//
-//        default:
-//            break
-//        }
-//    }
     
     private func updateAimDots(angle: CGFloat) {
-        
+        guard let gridNode = bgCheckeredNode else { return }
+
+        let gridFrame = gridNode.frame
         removeAimDots()
         
         let start = CGPoint(
-            x: shootX,
-            y: shootY
+            x: min(max(shootX, playAreaRect.minX), playAreaRect.maxX),
+            y: min(max(shootY, playAreaRect.minY), playAreaRect.maxY)
         )
         
         let direction = CGVector(
@@ -793,8 +765,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         
         // Maximum ray length
-        let maxDistance: CGFloat = 2000
-        
+        let maxDistance: CGFloat = max(gridW, gridH)
+
         let end = CGPoint(
             x: start.x + direction.dx * maxDistance,
             y: start.y + direction.dy * maxDistance
@@ -802,6 +774,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Default target
         var targetPoint = end
+
+        let minX = gridFrame.minX
+        let maxX = gridFrame.maxX
+        let minY = gridFrame.minY
+        let maxY = gridFrame.maxY
+
+        targetPoint.x = min(max(targetPoint.x, playAreaRect.minX), playAreaRect.maxX)
+        targetPoint.y = min(max(targetPoint.y, playAreaRect.minY), playAreaRect.maxY)
         
         // ===== Raycast =====
         
@@ -835,6 +815,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 
                 stop.pointee = true
             }
+            targetPoint.x = min(max(targetPoint.x, minX), maxX)
+            targetPoint.y = min(max(targetPoint.y, minY), maxY)
         }
         
         // ===== Distance =====
@@ -900,11 +882,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let arrowOffset = arrowSize * 0.9
 
         let arrowPos = CGPoint(
-            x: start.x + (targetPoint.x - start.x) * arrowProgress
-                - direction.dx * arrowOffset,
-
+            x: start.x + (targetPoint.x - start.x) * arrowProgress,
             y: start.y + (targetPoint.y - start.y) * arrowProgress
-                - direction.dy * arrowOffset
         )
         
         let arrow = SKShapeNode()
@@ -967,7 +946,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         arrow.strokeColor = .clear
         
-        arrow.position = arrowPos
+        arrow.position = clampToPlayArea(arrowPos)
         
         arrow.zPosition = 21
         
@@ -1062,7 +1041,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func fireOneBall() {
-        let node = BallNode(radius: GameConstants.ballRadius)
+//        let node = BallNode(radius: GameConstants.ballRadius)
+        guard let texture = bakpaoNode?.texture else { return }
+
+        let node = BallNode(
+            texture: texture,
+            radius: GameConstants.ballRadius
+        )
         node.position = CGPoint(x: shootX, y: shootY)
         let entity    = BallEntity(node: node)
         entityManager.add(entity)
@@ -1232,6 +1217,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     dx: vx / spd * GameConstants.ballSpeed,
                     dy: vy / spd * GameConstants.ballSpeed
                 )
+                sprite.position.x = min(max(sprite.position.x, gridOrigin.x), gridOrigin.x + gridW)
+                sprite.position.y = min(max(sprite.position.y, gridOrigin.y), gridOrigin.y + gridH)
             }
         }
     }
@@ -1412,12 +1399,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         node.removeFromParent()
 
         switch consumable.pickupType {
-//        case .ammo:
-//            ballCount += 1
-//            refreshHUD()
-//            HapticManager.shared.play(.medium)
-//            floatLabel("+1", at: node.position, color: UIColor(red: 0.45, green: 0.72, blue: 1.0, alpha: 1))
-//
         case .ammo:
             let previousCount = ballCount
             ballCount += 1
@@ -1469,31 +1450,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: - Ball Landing
-
-//    private func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
-//        // Record first landing X as the new shooter position
-//        if firstLandX == nil {
-//            let lo = gridOrigin.x + GameConstants.ballRadius + gap
-//            let hi = gridOrigin.x + gridW - GameConstants.ballRadius - gap
-//            firstLandX = Swift.min(Swift.max(ball.position.x, lo), hi)
-//            showNextMarker(x: firstLandX!)
-//        }
-//
-//        ball.physicsBody?.velocity = .zero
-//        ball.physicsBody = nil
-//
-//        // Deregister from ECS before starting fade — entityManager.remove() would call
-//        // removeFromParent() immediately and cancel the fade-out animation.
-//        entityManager.untrack(entity)
-//
-//        ball.run(.sequence([
-//            .fadeOut(withDuration: 0.10),
-//            .removeFromParent()
-//        ]))
-//
-//        volleyLanded += 1
-//        if volleyLanded >= volleyTotal { endVolley() }
-//    }
     private func ballLanded(entity: GKEntity, ball: SKSpriteNode) {
 
         // Clamp posisi landing
@@ -1678,28 +1634,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: - End Volley / Advance Board
-
-//    private func endVolley() {
-//        if let lx = firstLandX { shootX = lx }
-//        firstLandX = nil
-//
-//        stateMachine.enter(GameTurnEndState.self)
-//
-//        clearPortalRings()
-//        nextMarker?.removeFromParent()
-//        nextMarker = nil
-//
-//        turnNumber += 1
-//        refreshHUD()
-//        placeShooterMarker()
-//        advanceBoard()
-//
-//        // Brief delay, then return to aiming
-//        run(.sequence([
-//            .wait(forDuration: 0.45),
-//            .run { [weak self] in self?.stateMachine.enter(GameAimingState.self) }
-//        ]))
-//    }
     private func endVolley() {
 
         // Cari posisi landing paling ramai
@@ -1808,5 +1742,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             .wait(forDuration: 0.08),
             .run { [weak self] in self?.spawnRow(0) }
         ]))
+    }
+    private func clampToPlayArea(_ point: CGPoint) -> CGPoint {
+
+        let minX = gridOrigin.x + playAreaInset
+        let maxX = gridOrigin.x + gridW - playAreaInset
+        let minY = gridOrigin.y + playAreaInset
+        let maxY = gridOrigin.y + gridH - playAreaInset
+
+        return CGPoint(
+            x: min(max(point.x, minX), maxX),
+            y: min(max(point.y, minY), maxY)
+        )
     }
 }
