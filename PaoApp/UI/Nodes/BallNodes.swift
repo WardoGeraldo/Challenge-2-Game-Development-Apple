@@ -9,43 +9,24 @@ import Foundation
 import SpriteKit
 import UIKit
 
-// MARK: - BallNode
-
-// Flying bakpao — uses the bakpaoAmmo asset.
-// CCD (usesPreciseCollisionDetection) prevents tunnelling through blocks at high speed.
-//class BallNode: SKSpriteNode {
-//    init(radius: CGFloat) {
-//        super.init(
-//            texture: SKTexture(imageNamed: "bakpaoAmmo"),
-//            color: .clear,
-//            size: CGSize(width: radius * 2, height: radius * 2)
-//        )
-//        name      = "ball"
-//        zPosition = 7
-//        setupPhysics(radius: radius)
-//    }
+// TODO: [UI/Node Team] Implement BallNode — the visual for a ball in flight.
 //
-//    required init?(coder: NSCoder) {
-//        fatalError("init(coder:) has not been implemented")
-//    }
+// BallNode is used by BallEntity's RenderComponent.
+//
+// Minimum required:
+//   - An SKSpriteNode or SKShapeNode circle with radius = GameConstants.ballRadius
+//   - Use the "bakpaoAmmo" image asset if available (SKSpriteNode(imageNamed: "bakpaoAmmo"))
+//   - Set zPosition = 5
+//
+// The physics body is added separately by BallEntity (or PhysicsComponent),
+// so BallNode itself does NOT need to set physicsBody.
+//
+// Expected init:
+//   init(radius: CGFloat)
 
-final class BallNode: SKSpriteNode {
-
-    init(texture: SKTexture, radius: CGFloat) {
-
-        super.init(
-            texture: texture,
-            color: .clear,
-            size: CGSize(
-                width: radius * 2,
-                height: radius * 2
-            )
-        )
-
-        name = "ball"
-        zPosition = 7
-
-        setupPhysics(radius: radius)
+class BallNode: SKNode {
+    init(scale: CGFloat) {
+        super.init()
     }
 
     required init?(coder aDecoder: NSCoder) {

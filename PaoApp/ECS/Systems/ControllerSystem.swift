@@ -10,11 +10,7 @@ import GameplayKit
 import SpriteKit
 import CoreGraphics
 
-// Manages the dashed aim-line drawn while the player is panning.
-// Keeps the scene clean by owning the single aimLine node reference.
-class ControllerSystem {
-    private weak var scene: SKScene?
-    private var aimLine: SKShapeNode?
+class ControllerSystem: GKComponentSystem<GKComponent> {
 
     init(scene: SKScene) {
         self.scene = scene

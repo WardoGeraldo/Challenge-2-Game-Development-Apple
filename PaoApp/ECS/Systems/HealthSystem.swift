@@ -147,7 +147,6 @@ class HealthSystem {
 
         if let lbl = node.childNode(withName: "hp") as? SKLabelNode {
 
-            lbl.text = "\(hp)"
-        }
-    }
+class HealthSystem: GKComponentSystem<HealthComponent> {
+
 }

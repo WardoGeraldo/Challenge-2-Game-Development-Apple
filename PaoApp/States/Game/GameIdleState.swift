@@ -7,26 +7,21 @@
 
 import GameplayKit
 
-// Player is idle/aiming — pan gesture allowed, balls not yet fired
-class GameAimingState: GKState {
-    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameFlyingState.self
+// Resting state between turns. Waits for the player to begin a pan gesture,
+// which GameScene intercepts and transitions to GameAimingState.
+class GameIdleState: GKState {
+
+    weak var context: GameStateContext?
+
+    init(context: GameStateContext) {
+        self.context = context
+        super.init()
     }
-}
 
-// MARK: - GameFlyingState
-
-// Balls are in flight — aiming is disabled, rover movement is active
-class GameFlyingState: GKState {
-    override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        stateClass == GameTurnEndState.self
+    override func didEnter(from previousState: GKState?) {
+        // Nothing to set up — input is always live; GameScene gates it via currentState check.
     }
-}
 
-// MARK: - GameTurnEndState
-
-// Board is advancing to the next turn — brief transition before aiming resumes
-class GameTurnEndState: GKState {
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
         stateClass == GameAimingState.self
     }

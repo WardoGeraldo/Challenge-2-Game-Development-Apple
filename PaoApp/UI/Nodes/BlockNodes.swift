@@ -9,30 +9,25 @@ import Foundation
 import SpriteKit
 import UIKit
 
-// MARK: - BlockType
+// TODO: [UI/Node Team] Implement BlockNode — the visual for a block on the board.
+//
+// BlockNode is used by BlockEntity's RenderComponent.
+//
+// Minimum required:
+//   - An SKShapeNode rectangle sized to `cell × cell` with cornerRadius
+//   - Fill color based on block type (normal / bomb / rover) and HP ratio
+//   - A child SKLabelNode named "hpLabel" showing the current HP number
+//   - Set zPosition = 2
+//
+// Expected init:
+//   init(cell: CGFloat, hp: Int, ballCount: Int)
+//   or a static factory: static func make(type: BlockType, hp: Int, ballCount: Int, cell: CGFloat) -> BlockNode
+//
+// HealthSystem will find the "hpLabel" child by name and update its text after each hit.
+// The physics body is NOT set here — BlockEntity (via PhysicsComponent) handles that.
+//
+// Reference: ECS_Prototype → BlockNodes.swift (full implementation with color gradients and spawn animation)
 
-// All available block types in the game
-enum BlockType {
-    case normal
-    case triangle(flipped: Bool)   // unlocks turn 5 — diagonal bounces
-    case bomb                      // unlocks turn 10 — explodes adjacent blocks on death
-    case rover                     // unlocks turn 3 — slides left/right each turn
-
-    var isBomb: Bool {
-        if case .bomb = self { return true }
-        return false
-    }
-
-    var isRover: Bool {
-        if case .rover = self { return true }
-        return false
-    }
-}
-
-// MARK: - BlockNode
-
-// Factory for all block visual types.
-// Each block carries named child nodes ("blockSprite", "hp") used by HealthSystem.
 class BlockNode: SKNode {
 
     // MARK: - Factory
@@ -326,18 +321,5 @@ class BlockNode: SKNode {
         case ..<1.0: return UIColor(red: 0.85, green: 0.65, blue: 0.15, alpha: 1)
         default:     return UIColor(red: 0.85, green: 0.28, blue: 0.22, alpha: 1)
         }
-    }
-}
-
-// MARK: - CGPath polygon helper
-
-extension CGPath {
-    static func polygon(points: [CGPoint]) -> CGPath {
-        let path = CGMutablePath()
-        guard let first = points.first else { return path }
-        path.move(to: first)
-        points.dropFirst().forEach { path.addLine(to: $0) }
-        path.closeSubpath()
-        return path
     }
 }
