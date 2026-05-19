@@ -109,7 +109,7 @@ final class GameScene: SKScene {
         )
 
     }
-    
+
     override func update(_ currentTime: TimeInterval) {
         let deltaTime = currentTime - lastUpdateTimeInterval
         lastUpdateTimeInterval = currentTime
@@ -175,9 +175,7 @@ extension GameScene: SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
         guard
             let nodeA = contact.bodyA.node,
-            let nodeB = contact.bodyB.node,
-            let entityA = entityManager.entity(forNode: nodeA),
-            let entityB = entityManager.entity(forNode: nodeB)
+            let entityA = entityManager.entity(forNode: nodeA)
         else { return }
 
         guard
@@ -189,10 +187,7 @@ extension GameScene: SKPhysicsContactDelegate {
         }
 
         physicsComponentA.contactQueue.append(
-            PhysicsContact(
-                entityA: entityA,
-                entityB: entityB,
-            )
+            contact
         )
     }
 }

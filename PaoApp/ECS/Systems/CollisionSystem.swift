@@ -32,22 +32,54 @@ class CollisionSystem: GKComponentSystem<PhysicsComponent> {
                     continue
                 }
 
-                if let healthComponent = entityA.component(
-                    ofType: HealthComponent.self
+                if let projectileComponent = entityA.component(
+                    ofType: ProjectileComponent.self
                 ) {
-                    healthComponent.hit()
-                } else if let healthComponent = entityB.component(
-                    ofType: HealthComponent.self
-                ) {
-                    healthComponent.hit()
-                } else if let consumableComponent = entityA.component(
-                    ofType: ConsumableComponent.self
-                ) {
-                    // TODO: Handle player consuming item
-                } else if let consumableComponent = entityB.component(
-                    ofType: ConsumableComponent.self
-                ) {
-                    // TODO: Handle player consuming item
+                    if let healthComponent = entityB.component(
+                        ofType: HealthComponent.self
+                    ) {
+                        healthComponent.hit(demage: projectileComponent.damage)
+                    } else if let consumableComponent = entityB.component(
+                        ofType: ConsumableComponent.self
+                    ) {
+                        // TODO: Handle player consuming item
+                        consumableComponent.onConsumed()
+                    }
+                } else {
+                    if entityB.component(
+                        ofType: ProjectileComponent.self
+                    ) != nil {
+                        guard
+                            let playerEntity = entityManager.entities(
+                                with: ControlComponent.self
+                            ).first,
+                            let playerTransformComponent =
+                                playerEntity.component(
+                                    ofType: TransformComponent.self
+                                )
+                        else { continue }
+
+                        guard
+                            let transformComponent = entityB.component(
+                                ofType: TransformComponent.self
+                            ),
+                            let velocityComponent = entityB.component(
+                                ofType: VelocityComponent.self
+                            )
+                        else { continue }
+
+                        velocityComponent.velocity = .zero
+                        transformComponent.position = contact.contactPoint
+                        playerTransformComponent.position = contact.contactPoint
+                    } else if entityB.component(
+                        ofType: HealthComponent.self
+                    ) != nil {
+                        entityManager.remove(entityB)
+                    } else if entityB.component(
+                        ofType: ConsumableComponent.self
+                    ) != nil {
+                        entityManager.remove(entityB)
+                    }
                 }
             }
 
