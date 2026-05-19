@@ -50,6 +50,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var turnNumber    = 0
     private var portalCharges = 0
 
+    // Update time
+    var lastUpdateTimeInterval: TimeInterval = 0
+
+    private var score: Int = 0
     // Volley tracking
     private var volleyTotal:  Int      = 0
     private var volleyLanded: Int      = 0
@@ -215,6 +219,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         ).y
     }
 
+    private func configureWalls() {
+        
+    }
+
+    private func configureBlock() {
+        let block = BlockEntity(health: 5)
+        entityManager.add(block)
+    }
+    
+    override func update(_ currentTime: TimeInterval) {
+        let deltaTime = currentTime - lastUpdateTimeInterval
+        lastUpdateTimeInterval = currentTime
+
+        entityManager.update(deltaTime)
     private func cellCenter(col: Int, row: Int) -> CGPoint {
 
         return CGPoint(
@@ -702,6 +720,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+//MARK: Collision
+extension GameScene: SKPhysicsContactDelegate {
+    func didBegin(_ contact: SKPhysicsContact) {
+        guard
+            let nodeA = contact.bodyA.node,
+            let nodeB = contact.bodyB.node,
+            let entityA = entityManager.entity(forNode: nodeA),
+            let entityB = entityManager.entity(forNode: nodeB)
+        else { return }
+
+        guard
+            let physicsComponentA = entityA.component(
+                ofType: PhysicsComponent.self
+            )
+        else {
+            return
     private func addBlockEntity(at pos: CGPoint, type: BlockType, hp: Int) {
         let node = BlockNode.make(type: type, hp: hp, ballCount: ballCount, cell: cell)
         node.position = pos
@@ -740,6 +774,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         entityManager.add(entity)
     }
 
+        physicsComponentA.contactQueue.append(
+            PhysicsContact(
+                entityA: entityA,
+                entityB: entityB,
+            )
+        )
     // MARK: - Gesture (Aiming)
 
     private func addPanGesture(to view: SKView) {

@@ -26,11 +26,16 @@ class HealthComponent: GKComponent {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Decrements HP by 1; returns true if entity is now dead
-    @discardableResult
-    func hit() -> Bool {
-        health = max(0, health - 1)
-        return isDead
+    var label: SKLabelNode
+
+    //  Accessing the parent's spritenode if any
+    var spriteNode: SKNode? {
+        return entity?.component(ofType: RenderComponent.self)?.node
+            as? SKNode
+    }
+
+    func hit(demage: Int = 1) {
+        self.health -= demage
     }
 }
 
@@ -40,9 +45,21 @@ class HealthComponent: GKComponent {
 class BlockTypeComponent: GKComponent {
     let blockType: BlockType
 
-    init(_ type: BlockType) {
-        self.blockType = type
+        self.label = LabelNode(name: "healthLabel")
+
         super.init()
+
+        self.label.text = String(self.health)
+    }
+
+    override func didAddToEntity() {
+        super.didAddToEntity()
+        // Now 'entity' is not nil, so we can find the sibling sprite component
+        if let renderComponent = entity?.component(
+            ofType: RenderComponent.self
+        ) {
+            renderComponent.node.addChild(self.label)
+        }
     }
 
     required init?(coder: NSCoder) {

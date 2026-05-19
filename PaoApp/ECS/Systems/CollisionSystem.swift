@@ -9,26 +9,49 @@ import Foundation
 import GameplayKit
 import SpriteKit
 
-// Stores a single contact event to be processed on the next update tick.
-// Using a queue avoids modifying the physics world during a contact callback.
-struct CollisionEvent {
-    let ballNode:  SKNode
-    let otherNode: SKNode
-    let isBlock:   Bool    // true = ball hit a block; false = ball hit a pickup
-}
+class CollisionSystem: GKComponentSystem<PhysicsComponent> {
+    var entityManager: EntityManager
 
-// Queues physics contacts and drains them safely on the next update cycle.
-class CollisionSystem {
-    private var queue: [CollisionEvent] = []
+    init(entityManager: EntityManager) {
+        self.entityManager = entityManager
 
-    // Called from SKPhysicsContactDelegate — appends, never processes immediately
-    func enqueue(_ event: CollisionEvent) {
-        queue.append(event)
+        super.init(componentClass: PhysicsComponent.self)
     }
 
-    // Drains the queue and returns all pending events for processing
-    func dequeueAll() -> [CollisionEvent] {
-        defer { queue.removeAll() }
-        return queue
+    override func update(deltaTime seconds: TimeInterval) {
+        super.update(deltaTime: seconds)
+
+        for physicsComponent in components {
+            for contact in physicsComponent.contactQueue {
+                guard
+                    let nodeA = contact.bodyA.node,
+                    let entityA = entityManager.entity(forNode: nodeA),
+                    let nodeB = contact.bodyB.node,
+                    let entityB = entityManager.entity(forNode: nodeB)
+                else {
+                    continue
+                }
+
+                if let healthComponent = entityA.component(
+                    ofType: HealthComponent.self
+                ) {
+                    healthComponent.hit()
+                } else if let healthComponent = entityB.component(
+                    ofType: HealthComponent.self
+                ) {
+                    healthComponent.hit()
+                } else if let consumableComponent = entityA.component(
+                    ofType: ConsumableComponent.self
+                ) {
+                    // TODO: Handle player consuming item
+                } else if let consumableComponent = entityB.component(
+                    ofType: ConsumableComponent.self
+                ) {
+                    // TODO: Handle player consuming item
+                }
+            }
+
+            physicsComponent.contactQueue.removeAll()
+        }
     }
 }

@@ -34,6 +34,47 @@ final class RandomManager {
             multiplier = 1.5       // 10%: hard — one and a half ammo needed
         }
 
+// Type-erased wrapper so we can store heterogeneous GKComponentSystem<T>
+protocol AnyComponentSystem {
+    func add(foundIn entity: GKEntity)
+    func remove(foundIn entity: GKEntity)
+    func update(deltaTime: TimeInterval)
+}
+
+private struct ComponentSystemBox<T: GKComponent>: AnyComponentSystem {
+    let system: GKComponentSystem<T>
+
+    func add(foundIn entity: GKEntity) {
+        system.addComponent(foundIn: entity)
+    }
+
+    func remove(foundIn entity: GKEntity) {
+        system.removeComponent(foundIn: entity)
+    }
+
+    func update(deltaTime: TimeInterval) {
+        system.update(deltaTime: deltaTime)
+    }
+}
+
+final class EntityManager {
+    var entities = Set<GKEntity>()
+    let scene: SKScene
+
+    // TODO: Add component systems here
+    lazy var componentSystems: [AnyComponentSystem] = {
+        let collisionSystem = CollisionSystem(
+            entityManager: self
+        )
+        let controllerSystem = ControllerSystem()
+        // Example: let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
+        // Then include: ComponentSystemBox(system: moveSystem)
+
+        return [
+            ComponentSystemBox(system: collisionSystem),
+            ComponentSystemBox(system: controllerSystem),
+        ]
+    }()
         let base      = Double(ballCount) * multiplier
         let variance  = Int.random(in: -2...2)
         return max(1, Int(base.rounded()) + variance)
@@ -60,6 +101,13 @@ final class EntityManager {
     // Adds entity and its render node to the scene
     func add(_ entity: GKEntity) {
         entities.insert(entity)
+
+        if let skNode = entity.component(ofType: RenderComponent.self)?.node {
+            scene.addChild(skNode)
+        }
+
+        for componentSystem in componentSystems {
+            componentSystem.add(foundIn: entity)
         if let node = entity.component(ofType: RenderComponent.self)?.node {
             scene?.addChild(node)
         }
@@ -99,6 +147,11 @@ final class EntityManager {
         entity.component(ofType: RenderComponent.self)?.node.removeFromParent()
     }
 
+        for currentRemove in toRemove {
+            for componentSystem in componentSystems {
+                componentSystem.remove(foundIn: currentRemove)
+            }
+        }
     // Soft removal: deregisters entity from ECS tracking but leaves its node in the scene.
     // Use this when the node has a self-removing animation already running —
     // the animation's .removeFromParent() action handles the visual cleanup.
@@ -111,10 +164,18 @@ final class EntityManager {
         entities.filter { $0.component(ofType: T.self) != nil }
     }
 
+    // TODO: Get Entity
+    // Returns all entities that own a given component type
+    func entities<T: GKComponent>(with componentType: T.Type) -> [GKEntity] {
+        entities.filter { $0.component(ofType: T.self) != nil }
+    }
+
     // Finds the entity whose render node matches the given SKNode
     func entity(forNode node: SKNode) -> GKEntity? {
         entities.first {
             $0.component(ofType: RenderComponent.self)?.node === node
         }
     }
+
+    // TODO: Add helper methods such as generate blocks here?
 }
