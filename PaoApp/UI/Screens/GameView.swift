@@ -14,7 +14,7 @@ struct GameView: View {
     var onGameOver: () -> Void = { }
     @State private var isPaused: Bool = false
     @State private var showQuitConfirm: Bool = false
-//    @State private var settings = SettingsManager()
+    //    @State private var settings = SettingsManager()
     
     var body: some View {
         // 2. The ZStack creates the layers
@@ -52,9 +52,15 @@ struct GameView: View {
                 Color.black.opacity(0.5).ignoresSafeArea() // Dim background
                 
                 PauseViewModal(
-//                    settings: settings,
-                    onResume: { isPaused = false },
-                    onQuit: { showQuitConfirm = true }
+                    //                    settings: settings,
+                    onResume: {
+                        print("RESUME CLICKED!")
+                        isPaused = false // This closes the pause menu
+                    },
+                    onQuit: {
+                        print("QUIT CLICKED!")
+                        showQuitConfirm = true // This opens the quit menu
+                    }
                 )
             }
             
