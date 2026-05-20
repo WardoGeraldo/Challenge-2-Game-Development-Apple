@@ -5,29 +5,26 @@
 //  Created by Saujana Shafi on 05/05/26.
 //
 
-//  BlockEntity.swift
 import Foundation
 import GameplayKit
 import SpriteKit
 
 class BlockEntity: GKEntity {
-    init(type: BlockType = .normal, health: Int, ballCount: Int, cell: CGFloat) {
+    init(node: SKNode, hp: Int, type: BlockType) {
         super.init()
-
-        let node = BlockNode.make(type: type, hp: health, ballCount: ballCount, cell: cell)
         addComponent(RenderComponent(node))
-        addComponent(TransformComponent(CGPoint.zero, 0))
-        addComponent(HealthComponent(health))
+        addComponent(TransformComponent(node.position, 0))
+        addComponent(HealthComponent(hp))
         addComponent(BlockTypeComponent(type))
 
-        let body = SKPhysicsBody(rectangleOf: CGSize(width: cell * 0.9, height: cell * 0.9))
-        body.isDynamic = false
-        body.friction = 0
-        body.restitution = 1
-        body.categoryBitMask    = PhysicsCategory.block
-        body.collisionBitMask   = PhysicsCategory.ball
-        body.contactTestBitMask = PhysicsCategory.ball
-        addComponent(PhysicsComponent(body))
+        // Physics body is nil during spawn animation — added here only if present
+        if let body = node.physicsBody {
+            addComponent(PhysicsComponent(body))
+        }
+
+        if type.isRover {
+            addComponent(RoverComponent())
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

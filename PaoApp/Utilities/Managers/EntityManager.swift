@@ -30,7 +30,6 @@ final class EntityManager {
 
     lazy var componentSystems: [AnyComponentSystem] = {
         [
-            ComponentSystemBox(system: CollisionSystem(entityManager: self)),
             ComponentSystemBox(system: ControllerSystem())
         ]
     }()

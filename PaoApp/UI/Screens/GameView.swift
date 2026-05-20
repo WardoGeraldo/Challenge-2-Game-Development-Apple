@@ -11,6 +11,7 @@ import SwiftUI
 // Presents GameScene using the full screen bounds (including safe area).
 // GameScene internally reads safe area insets to position content correctly.
 struct GameView: View {
+    var onGameOver: () -> Void = { }
     var body: some View {
         GeometryReader { geo in
             SpriteView(scene: makeScene(size: geo.size))
@@ -23,6 +24,7 @@ struct GameView: View {
         let scene = GameScene(size: size)
         // resizeFill keeps the scene exactly equal to the view — no letterboxing
         scene.scaleMode = .resizeFill
+        scene.onGameOver = onGameOver
         return scene
     }
 }

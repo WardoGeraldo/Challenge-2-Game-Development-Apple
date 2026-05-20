@@ -24,37 +24,36 @@ import UIKit
 // Expected init:
 //   init(radius: CGFloat)
 
-class BallNode: SKNode {
-    init(scale: CGFloat) {
-        super.init()
+final class BallNode: SKNode {
+    init(texture: SKTexture, radius: CGFloat) {
+        super.init()                              // SKNode.init() — no args
+
+        // Visual lives as a child SKSpriteNode
+        let sprite = SKSpriteNode(
+            texture: texture,
+            color: UIColor.clear,
+            size: CGSize(width: radius * 2, height: radius * 2)
+        )
+        addChild(sprite)
+
+        name = "ball"
+        zPosition = 7
+        setupPhysics(radius: radius)             // physics on the parent SKNode
     }
 
-    required init?(coder aDecoder: NSCoder) {
-        fatalError()
-    }
+    required init?(coder aDecoder: NSCoder) { fatalError() }
 
     private func setupPhysics(radius: CGFloat) {
-
         let body = SKPhysicsBody(circleOfRadius: radius)
-
         body.friction = 0
         body.linearDamping = 0
         body.restitution = 1
         body.allowsRotation = false
         body.isDynamic = true
-
         body.usesPreciseCollisionDetection = true
-
-        body.categoryBitMask = PhysicsCategory.ball
-
-        body.collisionBitMask =
-            PhysicsCategory.wall
-            | PhysicsCategory.block
-
-        body.contactTestBitMask =
-            PhysicsCategory.block
-            | PhysicsCategory.pickup
-
+        body.categoryBitMask    = PhysicsCategory.ball
+        body.collisionBitMask   = PhysicsCategory.wall | PhysicsCategory.block
+        body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.pickup
         physicsBody = body
     }
 }

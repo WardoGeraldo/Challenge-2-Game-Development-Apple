@@ -19,6 +19,11 @@ enum BlockType {
         if case .bomb = self { return true }
         return false
     }
+
+    var isRover: Bool {
+        if case .rover = self { return true }
+        return false
+    }
 }
 
 class HealthComponent: GKComponent {

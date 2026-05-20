@@ -27,9 +27,9 @@ class GameTurnEndState: GameState {
     }
 
     override func isValidNextState(_ stateClass: AnyClass) -> Bool {
-        // This state can only transition to the serve and refilling states.
         return stateClass is GameOverState.Type
             || stateClass is GameIdleState.Type
+            || stateClass is GameAimState.Type
     }
 
     // MARK: Methods

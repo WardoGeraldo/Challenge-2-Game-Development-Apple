@@ -8,8 +8,14 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var isPlaying = false
+
     var body: some View {
-        GameView()
+        if isPlaying {
+            GameView(onGameOver: { isPlaying = false })
+        } else {
+            HomeView(onPlay: { isPlaying = true })
+        }
     }
 }
 

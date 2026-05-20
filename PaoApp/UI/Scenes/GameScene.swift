@@ -49,6 +49,8 @@ final class GameScene: SKScene {
     var turnNumber    = 0
     var portalCharges = 0
     
+    var onGameOver: (() -> Void)?
+    
     // Update time
     var lastUpdateTimeInterval: TimeInterval = 0
     
@@ -86,7 +88,7 @@ final class GameScene: SKScene {
     var nextMarker:  SKShapeNode?
     var aimDots: [SKShapeNode] = []
     var aimArrow: SKShapeNode?
-    var landedBallNodes: [SKSpriteNode] = []
+    var landedBallNodes: [SKNode] = []
     var isVolleyActive = false
     
     // MARK: - AssetNode
@@ -103,12 +105,12 @@ final class GameScene: SKScene {
     var pandaFrames: [SKTexture] = []
     
     
-    // MARK: - didMove
+    // MARK: - Entry Point
     override func didMove(to view: SKView) {
         scaleMode = .resizeFill
         entityManager    = EntityManager(scene: self)
         movementSystem   = MovementSystem()
-        collisionSystem  = CollisionSystem(entityManager: entityManager)
+        collisionSystem  = CollisionSystem()
         healthSystem     = HealthSystem()
         controllerSystem = ControllerSystem()
         
@@ -149,12 +151,8 @@ final class GameScene: SKScene {
         }
     }
     
-    
-    
-    
-    
-    // MARK: - Block / Pickup Spawning
-    
+    // MARK: - Spawning
+
     func spawnInitialRows() {
         for r in 0...2 { spawnRow(r) }
     }
@@ -192,23 +190,92 @@ final class GameScene: SKScene {
             }
         }
     }
-    
-    
-    func cellCenter(col: Int, row: Int) -> CGPoint {
+    // MARK: - Game Loop
+    override func update(_ currentTime: TimeInterval) {
+        let dt: CGFloat = lastDT == 0
+        ? 1 / 60.0
+        : CGFloat(min(currentTime - lastDT, 1 / 30.0))
+        lastDT = currentTime
         
-        return CGPoint(
-            x:
-                gridOrigin.x
-            + CGFloat(col) * cell
-            + cell / 2,
-            
-            y:
-                gridOrigin.y
-            + gridH
-            - CGFloat(row) * cell
-            - cell / 2
+        // Rover movement always runs (even during aiming)
+        movementSystem.update(
+            deltaTime: dt,
+            entityManager: entityManager,
+            cell: cell,
+            gap: gap,
+            gridOriginX: gridOrigin.x,
+            gridWidth: gridW
         )
+        
+        // Drain collision events queued by didBegin and call the right handler
+        for event in collisionSystem.dequeueAll() {
+            if event.isBlock {
+                handleBlockHit(node: event.otherNode)
+            } else {
+                handlePickupCollected(node: event.otherNode)
+            }
+        }
+        
+        guard stateMachine.currentState is GameFlyingState else { return }
+        
+        // Ball position updates
+        for entity in entityManager.entities(with: VelocityComponent.self) {
+            guard let velComp = entity.component(ofType: VelocityComponent.self),
+                  let render  = entity.component(ofType: RenderComponent.self),
+                  let body    = render.node.physicsBody,
+                  body.isDynamic else { continue }
+            let sprite = render.node
+            
+            // Accumulate flight time and force-land any ball stuck for too long.
+            // This is the hard backstop against infinite horizontal bounce loops.
+            velComp.flightTime += dt
+            if velComp.flightTime > 10 {
+                ballLanded(entity: entity, ball: sprite)
+                continue
+            }
+            
+            let v = body.velocity
+            
+            // Track rise above shooter row
+            if sprite.position.y > shootY + cell {
+                velComp.hasRisen = true
+            }
+            
+            // Detect landing: ball rose and returned to/below the shooter row moving down
+            if velComp.hasRisen && sprite.position.y <= shootY && v.dy <= 0 {
+                ballLanded(entity: entity, ball: sprite)
+                continue
+            }
+            
+            // Portal warp: teleport ball at entry band to exit band
+            if let entryY = portalEntryY, let exitY = portalExitY {
+                if abs(sprite.position.y - entryY) < cell * 0.4 && v.dy > 0 {
+                    sprite.position.y = exitY
+                    sprite.run(.sequence([
+                        .scale(to: 1.5, duration: 0.05),
+                        .scale(to: 1.0, duration: 0.08)
+                    ]))
+                }
+            }
+            
+            // Gravity only fires when the ball is moving downward or within ~3° of
+            // horizontal. Upward-moving balls (vy > threshold) travel in a straight
+            // line so low-angle shots feel natural. Stuck horizontal balls accumulate
+            // the downward nudge over a few seconds and land on their own.
+            let vx  = v.dx
+            let rawVY = v.dy
+            let vy  = rawVY < GameConstants.ballSpeed * 0.05
+            ? rawVY - GameConstants.gravityAccel * dt
+            : rawVY
+            let spd = hypot(vx, vy)
+            if spd > 1 {
+                body.velocity = CGVector(
+                    dx: vx / spd * GameConstants.ballSpeed,
+                    dy: vy / spd * GameConstants.ballSpeed
+                )
+                sprite.position.x = min(max(sprite.position.x, gridOrigin.x), gridOrigin.x + gridW)
+                sprite.position.y = min(max(sprite.position.y, gridOrigin.y), gridOrigin.y + gridH)
+            }
+        }
     }
-    
-    //MARK: Collision
 }
