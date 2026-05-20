@@ -102,8 +102,8 @@ class HealthSystem {
     }
 
     private func updateLabel(in node: SKNode, hp: Int) {
-        if let lbl = node.childNode(withName: "hp") as? SKLabelNode {
-            lbl.text = "\(hp)"
-        }
+        guard let lbl = node.childNode(withName: "hp") as? SKLabelNode else { return }
+          guard let attrs = lbl.attributedText?.attributes(at: 0, effectiveRange: nil) else { return }
+          lbl.attributedText = NSAttributedString(string: "\(hp)", attributes: attrs)
     }
 }

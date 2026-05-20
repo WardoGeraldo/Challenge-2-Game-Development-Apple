@@ -43,10 +43,14 @@ extension GameScene {
         animateBlockHit(node)
         
         let dead = healthSystem.hit(entity: entity, ballCount: ballCount)
-        
+//        ScoreManager.shared.addPoints(1)
         if dead {
             let isBomb = entity.component(ofType: BlockTypeComponent.self)?.blockType.isBomb ?? false
-            
+
+            // Award points based on the block's max HP
+            let maxHP = entity.component(ofType: HealthComponent.self)?.maxHealth ?? 1
+            refreshHUD()
+
             // Deregister from ECS first so no further hits are processed for this node.
             // physicsBody is already nil'd by HealthSystem — do NOT call entityManager.remove()
             // here because that would call node.removeFromParent() and cancel the death animation.

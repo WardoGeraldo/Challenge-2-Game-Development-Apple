@@ -11,6 +11,15 @@ import UIKit
 extension GameScene {
     // MARK: - HUD Build
     func buildHUD() {
+        // Score label — displayed above the grid, centered
+        scoreLabel = SKLabelNode()
+        scoreLabel.attributedText = NSAttributedString(string: "0", attributes: scoreAttributes())
+        scoreLabel.horizontalAlignmentMode = .center
+        scoreLabel.verticalAlignmentMode = .center
+        scoreLabel.position = CGPoint(x: gridOrigin.x + gridW / 2, y: gridOrigin.y + gridH + 65)
+        scoreLabel.zPosition = 10
+        addChild(scoreLabel)
+
         ammoContainer.zPosition = 10
         ammoContainer.name = "ui"
         addChild(ammoContainer)
@@ -64,17 +73,36 @@ extension GameScene {
 
         turnLabel.zPosition = 10
         addChild(turnLabel)
+        
+        ammoCountLabel = SKLabelNode()
+          ammoCountLabel.attributedText = NSAttributedString(
+              string: "x\(ballCount)",
+              attributes: ammoCountAttributes()
+          )
+          ammoCountLabel.horizontalAlignmentMode = .center
+          ammoCountLabel.verticalAlignmentMode   = .center
+          ammoCountLabel.position  = CGPoint(x: 25, y: 0) // center of bakpaoCountFrameNode
+          ammoCountLabel.zPosition = 9
+          bakpaoCountFrameNode?.addChild(ammoCountLabel)
 
         refreshHUD()
     }
 
     // MARK: - HUD Refresh
     func refreshHUD() {
+        scoreLabel.attributedText = NSAttributedString(
+            string: "\(ScoreManager.shared.currentScore)",
+            attributes: scoreAttributes()
+        )
         updateAmmoIcons()
         ammoContainer.run(.sequence([
             .scale(to: 1.12, duration: 0.06),
             .scale(to: 1.0, duration: 0.08)
         ]))
+        ammoCountLabel.attributedText = NSAttributedString(
+            string: "x \(ballCount)",
+            attributes: ammoCountAttributes()
+        )
     }
 
     
@@ -386,4 +414,20 @@ extension GameScene {
         
         nextMarker = dot
     }
+    private func scoreAttributes() -> [NSAttributedString.Key: Any] {
+          return [
+              .font: UIFont(name: "Melon-Pop", size: 75) ?? UIFont.systemFont(ofSize: 75),
+              .foregroundColor: UIColor(red: 254/255, green: 238/255, blue: 208/255, alpha: 1),
+              .strokeColor:     UIColor(red:92/255, green:53/255, blue:22/255,  alpha: 1),
+              .strokeWidth:     -5
+          ]
+      }
+    private func ammoCountAttributes() -> [NSAttributedString.Key: Any] {
+          return [
+              .font: UIFont(name: "Melon-Pop", size: 30) ?? UIFont.systemFont(ofSize: 30),
+              .foregroundColor: UIColor(red: 242/255, green: 211/255, blue: 141/255, alpha: 1),
+              .strokeColor:     UIColor(red:92/255, green:53/255, blue:22/255,  alpha: 1),
+              .strokeWidth:     -5
+          ]
+      }
 }
