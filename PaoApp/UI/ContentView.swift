@@ -12,7 +12,8 @@ struct ContentView: View {
 
     var body: some View {
         if isPlaying {
-            GameView(onGameOver: { isPlaying = false })
+            GameView(onGameOver: {
+                isPlaying = false })
         } else {
             HomeView(onPlay: { isPlaying = true })
         }
