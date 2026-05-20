@@ -253,9 +253,14 @@ class BlockNode: SKNode {
         let lbl = SKLabelNode(fontNamed: "MelonPop-Regular")
         
         lbl.name                    = "hp"
-        lbl.text                    = "\(hp)"
-        lbl.fontSize                = fontSize
-        lbl.fontColor               = .white
+        lbl.attributedText = NSAttributedString(string: "\(hp)", attributes: [
+              .font:            UIFont(name: "Melon-pop", size: fontSize) ?? UIFont.systemFont(ofSize:
+          fontSize),
+//              .foregroundColor: UIColor(red: 242/255, green: 211/255, blue: 141/255, alpha: 1),
+              .foregroundColor: UIColor(red: 255/255, green: 231/255, blue: 179/255, alpha: 1),
+              .strokeColor:     UIColor(red:92/255, green:53/255, blue:22/255,  alpha: 1),
+              .strokeWidth:     -5
+          ])  
         
         lbl.verticalAlignmentMode   = .center
         lbl.horizontalAlignmentMode = .center

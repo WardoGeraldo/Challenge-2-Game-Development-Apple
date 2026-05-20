@@ -81,10 +81,12 @@ final class GameScene: SKScene {
     var playerEntity: PlayerEntity?
     
     // MARK: - HUD Nodes
-    var countLabel: SKLabelNode!
+    var scoreLabel:   SKLabelNode!
+    var countLabel:   SKLabelNode!
+    var ammoCountLabel: SKLabelNode!
     var ammoContainer = SKNode()
-    var portalLabel: SKLabelNode!
-    var turnLabel:   SKLabelNode!
+    var portalLabel:  SKLabelNode!
+    var turnLabel:    SKLabelNode!
     var nextMarker:  SKShapeNode?
     var aimDots: [SKShapeNode] = []
     var aimArrow: SKShapeNode?
@@ -103,6 +105,9 @@ final class GameScene: SKScene {
     var bgBrownNode: SKSpriteNode?
     var gameFrameNode: SKSpriteNode?
     var pandaFrames: [SKTexture] = []
+    var bakpaoCountFrameNode: SKSpriteNode?
+    var pauseFrameNode: SKSpriteNode?
+    var pauseButtonNode: SKSpriteNode?
     
     
     // MARK: - Entry Point
@@ -128,6 +133,7 @@ final class GameScene: SKScene {
         physicsWorld.gravity         = .zero
         physicsWorld.contactDelegate = self
         
+        ScoreManager.shared.reset()
         computeLayout(in: view)
         setupAssets()
         
@@ -211,6 +217,7 @@ final class GameScene: SKScene {
         for event in collisionSystem.dequeueAll() {
             if event.isBlock {
                 handleBlockHit(node: event.otherNode)
+                ScoreManager.shared.addPoints(10)
             } else {
                 handlePickupCollected(node: event.otherNode)
             }

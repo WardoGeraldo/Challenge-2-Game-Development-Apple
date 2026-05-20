@@ -55,10 +55,15 @@ extension GameScene {
         
         bgBrownNode = overlayCopy.childNode(withName: "//bgBrownNode") as? SKSpriteNode
         gameFrameNode = overlayCopy.childNode(withName: "//gameFrameNode") as? SKSpriteNode
+        bakpaoCountFrameNode = overlayCopy.childNode(withName: "//bakpaoCountFrameNode") as? SKSpriteNode
+        pauseFrameNode       = overlayCopy.childNode(withName: "//pauseFrameNode") as? SKSpriteNode
+        pauseButtonNode      = overlayCopy.childNode(withName: "//pauseButtonNode") as? SKSpriteNode
         
         print("bgBrownNode:", bgBrownNode != nil)
         print("frameNode:", gameFrameNode != nil)
-        
+        print("bakpaoCountFrameNode:", bakpaoCountFrameNode != nil)
+        print("pauseFrameNode:", pauseFrameNode != nil)
+        print("pauseButtonNode:", pauseButtonNode != nil)
     }
     
     // MARK: - Walls
