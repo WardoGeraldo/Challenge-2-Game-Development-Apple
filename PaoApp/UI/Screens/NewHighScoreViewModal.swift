@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import SpriteKit
 
-struct GameOverViewModal: View {
+struct NewHighScoreViewModal: View {
 
     var score: Int
     var highscore: Int
@@ -28,13 +28,13 @@ struct GameOverViewModal: View {
 
     private func makeScene(
         size: CGSize
-    ) -> GameOverModalScene {
+    ) -> NewHighScoreModalScene {
 
         let scene =
-        GameOverModalScene(
-            fileNamed: "GameOverModalScene"
+        NewHighScoreModalScene(
+            fileNamed: "NewHighScoreModalScene"
         )
-        ?? GameOverModalScene(size: size)
+        ?? NewHighScoreModalScene(size: size)
 
         scene.size = size
         scene.score = score
@@ -55,7 +55,7 @@ struct GameOverViewModal: View {
 
 #Preview {
 
-    GameOverViewModal(
+    NewHighScoreViewModal(
         score: 258,
         highscore: 9999999,
         onClose: {},
