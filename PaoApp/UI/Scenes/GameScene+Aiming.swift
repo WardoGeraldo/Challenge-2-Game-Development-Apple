@@ -103,7 +103,6 @@ extension GameScene {
             if node.name == "ball"
                 || node.name == "player"
                 || node.name == "pickup_ammo"
-                || node.name == "pickup_portal"
                 || node.name == "ui" {
                 
                 return

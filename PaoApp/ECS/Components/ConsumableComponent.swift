@@ -11,7 +11,6 @@ import GameplayKit
 // Pickup types available on the board as consumables
 enum PickupType {
     case ammo          // adds +1 to ball count
-    case portalToken   // next volley warps balls mid-flight
 }
 
 // Marks an entity as a one-time consumable pickup

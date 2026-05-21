@@ -9,7 +9,6 @@ import Foundation
 import GameplayKit
 import SpriteKit
 
-// Represents a floor pickup (ammo or portal token).
 // Collected when a ball makes contact; behaviour defined by ConsumableComponent.
 class ItemBallEntity: GKEntity {
     init(node: SKNode, type: PickupType) {
