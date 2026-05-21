@@ -47,7 +47,6 @@ final class GameScene: SKScene {
     // MARK: - Game State
     var ballCount     = GameConstants.initialBallCount
     var turnNumber    = 0
-    var portalCharges = 0
     
     var onGameOver: (() -> Void)?
     
@@ -63,9 +62,6 @@ final class GameScene: SKScene {
     var shotAngle:    CGFloat  = .pi / 2
     var lastDT:       TimeInterval = 0
     
-    // Portal warp band positions (set when portal volley is active)
-    var portalEntryY: CGFloat? = nil
-    var portalExitY:  CGFloat? = nil
     
     // MARK: - ECS
     var entityManager:   EntityManager!
@@ -85,7 +81,6 @@ final class GameScene: SKScene {
     var countLabel:   SKLabelNode!
     var ammoCountLabel: SKLabelNode!
     var ammoContainer = SKNode()
-    var portalLabel:  SKLabelNode!
     var turnLabel:    SKLabelNode!
     var nextMarker:  SKShapeNode?
     var aimDots: [SKShapeNode] = []
@@ -176,12 +171,6 @@ final class GameScene: SKScene {
         var ammoCol:   Int? = Int.random(in: 0...99) < ammoChance ? emptyCols.first : nil
         if ammoCol   != nil { emptyCols.removeFirst() }
         
-        // Portal token: rare, only available from turn 6
-        let portalChance = turnNumber >= 6 ? 12 : 0
-        var portalCol: Int? = (!emptyCols.isEmpty && Int.random(in: 0...99) < portalChance)
-        ? emptyCols.first : nil
-        if portalCol != nil && !emptyCols.isEmpty { emptyCols.removeFirst() }
-        
         for c in 0..<GameConstants.cols {
             let pos = cellCenter(col: c, row: row)
             if blockCols.contains(c) {
@@ -191,8 +180,6 @@ final class GameScene: SKScene {
                 addBlockEntity(at: pos, type: type, hp: hp)
             } else if c == ammoCol {
                 addPickupEntity(at: pos, type: .ammo)
-            } else if c == portalCol {
-                addPickupEntity(at: pos, type: .portalToken)
             }
         }
     }
@@ -232,7 +219,6 @@ final class GameScene: SKScene {
                   let body    = render.node.physicsBody,
                   body.isDynamic else { continue }
             let sprite = render.node
-            
             // Accumulate flight time and force-land any ball stuck for too long.
             // This is the hard backstop against infinite horizontal bounce loops.
             velComp.flightTime += dt
@@ -252,17 +238,6 @@ final class GameScene: SKScene {
             if velComp.hasRisen && sprite.position.y <= shootY && v.dy <= 0 {
                 ballLanded(entity: entity, ball: sprite)
                 continue
-            }
-            
-            // Portal warp: teleport ball at entry band to exit band
-            if let entryY = portalEntryY, let exitY = portalExitY {
-                if abs(sprite.position.y - entryY) < cell * 0.4 && v.dy > 0 {
-                    sprite.position.y = exitY
-                    sprite.run(.sequence([
-                        .scale(to: 1.5, duration: 0.05),
-                        .scale(to: 1.0, duration: 0.08)
-                    ]))
-                }
             }
             
             // Gravity only fires when the ball is moving downward or within ~3° of

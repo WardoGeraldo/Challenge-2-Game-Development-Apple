@@ -52,10 +52,6 @@ extension GameScene {
             let n = AmmoPickupNode(cell: cell)
             n.position = pos
             node = n
-        case .portalToken:
-            let n = PortalPickupNode(cell: cell)
-            n.position = pos
-            node = n
         }
         let entity = ItemBallEntity(node: node, type: type)
         entityManager.add(entity)

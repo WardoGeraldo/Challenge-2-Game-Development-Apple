@@ -38,26 +38,6 @@ extension GameScene {
         countLabel.zPosition = 11
         addChild(countLabel)
 
-        // Portal label
-        portalLabel = SKLabelNode(fontNamed: GameConstants.fontName)
-        portalLabel.fontSize = 14
-        portalLabel.fontColor = UIColor(
-            red: 0.72,
-            green: 0.50,
-            blue: 1.0,
-            alpha: 1
-        )
-
-        portalLabel.horizontalAlignmentMode = .left
-        portalLabel.verticalAlignmentMode = .center
-        portalLabel.position = CGPoint(
-            x: gridOrigin.x + 160,
-            y: shootY
-        )
-
-        portalLabel.zPosition = 10
-        addChild(portalLabel)
-
         // Turn label
         turnLabel = SKLabelNode(fontNamed: GameConstants.fontName)
         turnLabel.fontSize = 13

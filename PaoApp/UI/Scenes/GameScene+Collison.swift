@@ -216,12 +216,6 @@ extension GameScene {
                     alpha: 1
                 )
             )
-        case .portalToken:
-            portalCharges += 1
-            refreshHUD()
-            HapticManager.shared.play(.heavy)
-            floatLabel("⬡ portal!", at: node.position, color: UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 1))
-            
         }
     }
     

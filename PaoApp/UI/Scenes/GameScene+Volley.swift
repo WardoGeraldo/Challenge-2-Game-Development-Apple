@@ -38,13 +38,6 @@ extension GameScene: SKPhysicsContactDelegate {
         
         stateMachine.enter(GameFlyingState.self)
         
-        // Activate portal warp if a charge is available
-        if portalCharges > 0 {
-            portalCharges -= 1
-            refreshHUD()
-            activatePortalVolley()
-        }
-        
         // Fire all balls with staggered delay
         for i in 0..<volleyTotal {
             run(.sequence([
@@ -66,80 +59,6 @@ extension GameScene: SKPhysicsContactDelegate {
             dx: cos(shotAngle) * GameConstants.ballSpeed,
             dy: sin(shotAngle) * GameConstants.ballSpeed
         )
-    }
-    
-    // MARK: - Portal Volley
-    
-    // Places entry (top half) and exit (bottom half) warp rings.
-    // Balls passing through the entry ring are teleported to the exit band in update().
-    func activatePortalVolley() {
-        var occupied = Set<String>()
-        entityManager.entities(with: BlockTypeComponent.self).forEach {
-            guard let render = $0.component(ofType: RenderComponent.self) else { return }
-            let col = Int(round((render.node.position.x - gridOrigin.x - gap - cell/2) / step))
-            let row = Int(round((gridOrigin.y + gridH - gap - cell/2 - render.node.position.y) / step))
-            occupied.insert("\(col),\(row)")
-        }
-        entityManager.entities(with: ConsumableComponent.self).forEach {
-            guard let render = $0.component(ofType: RenderComponent.self) else { return }
-            let col = Int(round((render.node.position.x - gridOrigin.x - gap - cell/2) / step))
-            let row = Int(round((gridOrigin.y + gridH - gap - cell/2 - render.node.position.y) / step))
-            occupied.insert("\(col),\(row)")
-        }
-        
-        func emptyCell(inRows range: ClosedRange<Int>) -> CGPoint? {
-            var candidates: [CGPoint] = []
-            for row in range {
-                for col in 0..<GameConstants.cols {
-                    if !occupied.contains("\(col),\(row)") {
-                        candidates.append(cellCenter(col: col, row: row))
-                    }
-                }
-            }
-            return candidates.randomElement()
-        }
-        
-        guard let topPos    = emptyCell(inRows: 0...3),
-              let bottomPos = emptyCell(inRows: 4...7) else { return }
-        
-        portalEntryY = topPos.y
-        portalExitY  = bottomPos.y
-        
-        let pairs: [(CGPoint, UIColor)] = [
-            (topPos,    UIColor(red: 0.72, green: 0.50, blue: 1.0, alpha: 0.9)),
-            (bottomPos, UIColor(red: 0.50, green: 0.85, blue: 0.72, alpha: 0.9))
-        ]
-        
-        for (pos, color) in pairs {
-            let ring = SKShapeNode(circleOfRadius: cell * 0.40)
-            ring.fillColor   = color.withAlphaComponent(0.13)
-            ring.strokeColor = color
-            ring.lineWidth   = 2.5
-            ring.position    = pos
-            ring.zPosition   = 8
-            ring.name        = "portalRing"
-            
-            let inner = SKShapeNode(circleOfRadius: cell * 0.22)
-            inner.fillColor   = .clear
-            inner.strokeColor = color.withAlphaComponent(0.55)
-            inner.lineWidth   = 1.2
-            inner.run(.repeatForever(.rotate(byAngle: -.pi * 2, duration: 1.2)))
-            ring.addChild(inner)
-            ring.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 2.0)))
-            addChild(ring)
-        }
-        
-        // Safety cleanup after 12s in case volley runs long
-        run(.sequence([
-            .wait(forDuration: 12),
-            .run { [weak self] in self?.clearPortalRings() }
-        ]))
-    }
-    
-    func clearPortalRings() {
-        enumerateChildNodes(withName: "portalRing") { n, _ in n.removeFromParent() }
-        portalEntryY = nil
-        portalExitY  = nil
     }
     
     // MARK: - Ball Landing
@@ -296,9 +215,7 @@ extension GameScene: SKPhysicsContactDelegate {
         updateAmmoContainerPosition()
         
         stateMachine.enter(GameTurnEndState.self)
-        
-        clearPortalRings()
-        
+                
         nextMarker?.removeFromParent()
         nextMarker = nil
         
