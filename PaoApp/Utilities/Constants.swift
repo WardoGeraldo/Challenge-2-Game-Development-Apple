@@ -6,14 +6,22 @@
 import CoreGraphics
 import Foundation
 
+// MARK: Base
+let kCell: CGFloat = 48
+let kColumns: Int = 7
+let kRows: Int = 9
+
+let kProjectileShotInterval: TimeInterval = 0.2
+let kProjectileSpeed: CGFloat = 500
+
 // MARK: Random Statistics
 // Deck size
 let randomShuffledDistributionLowestValue = 1
-let randomShuffledDistributionHighestValue = 10 //Flexible can be changed later
+let randomShuffledDistributionHighestValue = 10  //Flexible can be changed later
 
 // Block Type Probabilities
-let randomBlockType1Probability: Double = 0.60 //60%
-let randomBlockType2Probability: Double = 0.90 //30%
+let randomBlockType1Probability: Double = 0.60  //60%
+let randomBlockType2Probability: Double = 0.90  //30%
 let randomBlockType3Probability: Double = 1.0  //10%
 
 // HP Multiplier
@@ -27,14 +35,14 @@ let randomMaxVariance = 2
 
 enum GameConstants {
     // Grid layout
-    static let cols:      Int     = 7
-    static let blockRows: Int     = 9
-    static let gap:       CGFloat = 6
+    static let cols: Int = 7
+    static let blockRows: Int = 9
+    static let gap: CGFloat = 6
 
     // Ball
-    static let ballRadius: CGFloat      = 16
-    static let ballSpeed:  CGFloat      = 480
-    static let shootGap:   TimeInterval = 0.13
+    static let ballRadius: CGFloat = 16
+    static let ballSpeed: CGFloat = 480
+    static let shootGap: TimeInterval = 0.13
 
     // Rover
     static let roverSpeed: CGFloat = 30
