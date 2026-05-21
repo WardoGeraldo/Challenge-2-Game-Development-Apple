@@ -17,17 +17,17 @@ class SoundManager {
     //list of background musics
     enum BGMTrack: String {
         case mainTheme = "backgroundMusic"
-        case forestAmbience = "ambience"
+        case relaxAmbience = "ambience"
     }
     //list of Sound Effects
     enum SFX: String {
         case hitBlock = "hitBlockSFX.wav"
-        case shoot = "shootSFX.wav"
+        case pandaShoot = "pandaShootSFX.wav"
     }
 
     // MARK: Background Music
     //
-    func playBGM(track: BGMTrack) {
+    func playBGM(track: BGMTrack, volume: Float = 0.4) {
         stopBGM()
         
         // Use track.rawValue to safely get the string (cth: "backgroundMusic")
@@ -39,7 +39,7 @@ class SoundManager {
         do {
             bgmPlayer = try AVAudioPlayer(contentsOf: url)
             bgmPlayer?.numberOfLoops = -1
-            bgmPlayer?.volume = 0.4
+            bgmPlayer?.volume = volume
             bgmPlayer?.prepareToPlay()
             bgmPlayer?.play()
         } catch {

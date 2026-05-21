@@ -11,23 +11,10 @@ import GameplayKit
 import SpriteKit
 
 extension GameScene: SKPhysicsContactDelegate {
-
-    
-
-    
-
-    
-
-    
-    
-
-
-    
-
-    
     // MARK: - Volley Fire
     func startVolley(angle: CGFloat) {
         isVolleyActive = true
+        SoundManager.shared.playSFX(.pandaShoot, on: self)
         refreshHUD()
         shotAngle    = angle
         volleyTotal  = ballCount

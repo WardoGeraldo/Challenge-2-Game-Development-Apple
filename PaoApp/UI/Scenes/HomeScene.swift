@@ -15,6 +15,8 @@ class HomeScene: SKScene {
     private var buttonOriginalScale: CGFloat = 1.0
 
     override func didMove(to view: SKView) {
+        //To start BGM everytime the game opens
+        SoundManager.shared.playBGM(track: .mainTheme)
         if let button = childNode(withName: "HomeScreenPlayButton") {
             buttonOriginalScale = button.xScale
         }
