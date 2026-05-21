@@ -15,6 +15,11 @@ class ArenaEntity: GKEntity {
         // Visuals
         let node = ArenaShapeNode(scale: 1.0)
         addComponent(RenderComponent(node))
+        addComponent(
+            TransformComponent(
+                position,
+            )
+        )
 
         // Physics
         let physicsBody = makeArenaPhysicsBody(scale: 1.0)
@@ -24,11 +29,6 @@ class ArenaEntity: GKEntity {
         addComponent(ArenaComponent(col: kColumns, row: kRows))
 
         // Logic
-        addComponent(
-            TransformComponent(
-                position,
-            )
-        )
     }
 
     required init?(coder: NSCoder) {

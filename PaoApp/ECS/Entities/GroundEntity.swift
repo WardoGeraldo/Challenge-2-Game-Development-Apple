@@ -14,15 +14,15 @@ class GroundEntity: GKEntity {
 
         let node = GroundShapeNode(scale: 1.0)
         addComponent(RenderComponent(node))
-
-        let physicsBody = makeGroundPhysicsBody(scale: 1.0)
-        addComponent(PhysicsComponent(physicsBody))
-
         addComponent(
             TransformComponent(
                 position
             )
         )
+
+        let physicsBody = makeGroundPhysicsBody(scale: 1.0)
+        addComponent(PhysicsComponent(physicsBody))
+
         addComponent(GroundComponent())
     }
 

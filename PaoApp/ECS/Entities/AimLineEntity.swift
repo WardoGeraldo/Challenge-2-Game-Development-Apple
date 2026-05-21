@@ -14,7 +14,6 @@ class AimLineEntity: GKEntity {
 
         let node = AimLineNode()
         addComponent(RenderComponent(node))
-
         addComponent(
             TransformComponent(
                 .zero
