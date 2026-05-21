@@ -12,11 +12,12 @@ class AimLineNode: SKShapeNode {
     override init() {
         super.init()
 
-        strokeColor = .white
-        lineWidth = 2
-        lineCap = .round
-        zPosition = 5
-        name = "aim"
+        self.strokeColor = .white
+        self.lineWidth = 2
+        self.lineCap = .round
+        self.zPosition = 5
+
+        self.name = "aimLine"
     }
 
     required init?(coder aDecoder: NSCoder) {

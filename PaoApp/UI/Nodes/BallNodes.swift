@@ -7,7 +7,85 @@
 
 import Foundation
 import SpriteKit
-import UIKit
+
+class BallNode: SKNode {
+    init(scale: CGFloat) {
+        super.init()
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+// TODO: Other ball variants
+class BallShapeNode: SKShapeNode {
+    /// Use scale to handle different size of screens
+    init(scale: CGFloat) {
+        super.init()
+
+        let diameter = kCell * scale / 4
+        let rect = CGRect(
+            x: -diameter / 2,
+            y: -diameter / 2,
+            width: diameter,
+            height: diameter
+        )
+
+        self.path = CGPath(
+            ellipseIn: rect,
+            transform: nil
+        )
+
+        self.fillColor = .red
+        self.strokeColor = .white
+
+        self.lineWidth = 2
+        self.name = "ball"
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+class BallSpriteNode: SKSpriteNode {
+    init(scale: CGFloat) {
+        let diameter = kCell * scale / 4
+
+        super.init(
+            texture: SKTexture(imageNamed: "ballSprite"),
+            color: .clear,
+            size: CGSize(width: diameter, height: diameter)
+        )
+
+        self.name = "ball"
+
+        self.zPosition = 7
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+func makeBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
+    let radius = kCell * scale / 8
+    let body = SKPhysicsBody(circleOfRadius: radius)
+
+    body.isDynamic = true
+    body.affectedByGravity = false
+
+    body.friction = 0.0
+    body.linearDamping = 0.0
+    body.restitution = 1.0
+
+    body.categoryBitMask = PhysicsCategory.ball
+    body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.item
+    body.collisionBitMask = PhysicsCategory.block | PhysicsCategory.wall
+
+    return body
+}
 
 // TODO: [UI/Node Team] Implement BallNode — the visual for a ball in flight.
 //
@@ -24,40 +102,6 @@ import UIKit
 // Expected init:
 //   init(radius: CGFloat)
 
-final class BallNode: SKNode {
-    init(texture: SKTexture, radius: CGFloat) {
-        super.init()                              // SKNode.init() — no args
-
-        // Visual lives as a child SKSpriteNode
-        let sprite = SKSpriteNode(
-            texture: texture,
-            color: UIColor.clear,
-            size: CGSize(width: radius * 2, height: radius * 2)
-        )
-        addChild(sprite)
-
-        name = "ball"
-        zPosition = 7
-        setupPhysics(radius: radius)             // physics on the parent SKNode
-    }
-
-    required init?(coder aDecoder: NSCoder) { fatalError() }
-
-    private func setupPhysics(radius: CGFloat) {
-        let body = SKPhysicsBody(circleOfRadius: radius)
-        body.friction = 0
-        body.linearDamping = 0
-        body.restitution = 1
-        body.allowsRotation = false
-        body.isDynamic = true
-        body.usesPreciseCollisionDetection = true
-        body.categoryBitMask    = PhysicsCategory.ball
-        body.collisionBitMask   = PhysicsCategory.wall | PhysicsCategory.block
-        body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.pickup
-        physicsBody = body
-    }
-}
-
 // MARK: - AmmoPickupNode
 
 // Bakpao pickup — same asset as the thrown ball, sized to match the grid cell.
@@ -70,24 +114,32 @@ class AmmoPickupNode: SKNode {
         sprite.size = CGSize(width: size, height: size)
         addChild(sprite)
 
-        name      = "pickup_ammo"
+        name = "pickup_ammo"
         zPosition = 3
 
         let body = SKPhysicsBody(circleOfRadius: size * 0.45)
-        body.isDynamic          = false
-        body.categoryBitMask    = PhysicsCategory.pickup
-        body.collisionBitMask   = 0
+        body.isDynamic = false
+        body.categoryBitMask = PhysicsCategory.pickup
+        body.collisionBitMask = 0
         body.contactTestBitMask = PhysicsCategory.ball
         physicsBody = body
 
-        run(.repeatForever(.sequence([
-            .moveBy(x: 0, y: 3, duration: 0.6),
-            .moveBy(x: 0, y: -3, duration: 0.6)
-        ])))
-        run(.repeatForever(.sequence([
-            .scale(to: 1.08, duration: 0.9),
-            .scale(to: 0.94, duration: 0.9)
-        ])))
+        run(
+            .repeatForever(
+                .sequence([
+                    .moveBy(x: 0, y: 3, duration: 0.6),
+                    .moveBy(x: 0, y: -3, duration: 0.6),
+                ])
+            )
+        )
+        run(
+            .repeatForever(
+                .sequence([
+                    .scale(to: 1.08, duration: 0.9),
+                    .scale(to: 0.94, duration: 0.9),
+                ])
+            )
+        )
     }
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")

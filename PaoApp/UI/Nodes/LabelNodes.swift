@@ -16,7 +16,7 @@ class LabelNode: SKLabelNode {
 
         self.fontSize = 16
         self.fontColor = .white
-        self.fontName = "AvenirNext-Bold"
+        self.fontName = "MelonPop-Regular"
 
         // Center the label
         self.verticalAlignmentMode = .center
