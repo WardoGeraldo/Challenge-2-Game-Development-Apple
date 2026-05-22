@@ -7,9 +7,7 @@
 
 import Foundation
 import GameplayKit
-import CoreGraphics
 
-// Holds the player's current aiming state
 class ControlComponent: GKComponent {
     var pointTo: CGPoint
 
@@ -33,9 +31,4 @@ class ControlComponent: GKComponent {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-}
-
-class VelocityComponent: GKComponent {
-    override init() { super.init() }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
