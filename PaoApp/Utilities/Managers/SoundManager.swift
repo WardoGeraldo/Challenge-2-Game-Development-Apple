@@ -23,6 +23,7 @@ class SoundManager {
     enum SFX: String {
         case hitBlock = "hitBlockSFX.wav"
         case pandaShoot = "pandaShootSFX.wav"
+        case ammoCollect = "ammoSFX.wav"
     }
 
     // MARK: Background Music

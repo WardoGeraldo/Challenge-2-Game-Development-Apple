@@ -187,7 +187,7 @@ extension GameScene {
     func handlePickupCollected(node: SKNode) {
         guard let entity = entityManager.entity(forNode: node) else { return }
         guard let consumable = entity.component(ofType: ConsumableComponent.self) else { return }
-        SoundManager.shared.playSFX(.hitBlock, on: self)
+        SoundManager.shared.playSFX(.ammoCollect, on: self)
         // Deregister and remove physics so the same pickup can't be collected twice
         entityManager.untrack(entity)
         node.physicsBody = nil
