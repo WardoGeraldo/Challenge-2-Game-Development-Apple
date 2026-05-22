@@ -7,25 +7,40 @@
 
 import Foundation
 import GameplayKit
-import SpriteKit
 
 class BlockEntity: GKEntity {
-    init(node: SKNode, hp: Int, type: BlockType) {
+    init(
+        row: Int,
+        col: Int,
+    ) {
         super.init()
+
+        // Visuals
+        let node = BlockSpriteNode(scale: 0.9)
         addComponent(RenderComponent(node))
-        addComponent(TransformComponent(node.position, 0))
-        addComponent(HealthComponent(hp))
-        addComponent(BlockTypeComponent(type))
+        let position = CGPoint(
+            x: CGFloat(col) * kCell + (kCell / 2),
+            y: CGFloat(row) * kCell + (kCell / 2)
+        )
+        addComponent(
+            TransformComponent(
+                position
+            )
+        )
+        addComponent(GridComponent(row: row, col: col))
 
-        // Physics body is nil during spawn animation — added here only if present
-        if let body = node.physicsBody {
-            addComponent(PhysicsComponent(body))
-        }
+        // Physics
+        let physicsBody = makeBlockPhysicsBody(scale: 0.9)
+        addComponent(PhysicsComponent(physicsBody))
 
-        if type.isRover {
-            addComponent(RoverComponent())
-        }
+        // Logic
+        let health =
+            ScoreManager.shared.currentLevel + kProjectileInitial
+            + RandomManager.shared.getRandomVariance()
+        addComponent(HealthComponent(health))
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }

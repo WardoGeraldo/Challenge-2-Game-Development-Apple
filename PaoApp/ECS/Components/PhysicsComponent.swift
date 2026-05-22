@@ -9,7 +9,17 @@ import Foundation
 import GameplayKit
 
 class PhysicsComponent: GKComponent {
-    var physicsBody: SKPhysicsBody
+    private var _physicsBody: SKPhysicsBody
+
+    var physicsBody: SKPhysicsBody {
+        get {
+            _physicsBody
+        }
+        set {
+            _physicsBody = newValue
+            spriteNode?.physicsBody = _physicsBody
+        }
+    }
 
     // Physics Contact
     var contactQueue = [SKPhysicsContact]()
@@ -23,12 +33,11 @@ class PhysicsComponent: GKComponent {
     init(
         _ body: SKPhysicsBody,
     ) {
-        self.physicsBody = body
+        self._physicsBody = body
 
         super.init()
 
-        // Adding the newly made physics body to the parent's spriteNode
-        spriteNode?.physicsBody = physicsBody
+        self.physicsBody = body
     }
 
     override func didAddToEntity() {

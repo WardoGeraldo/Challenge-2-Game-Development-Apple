@@ -11,6 +11,7 @@ class ScoreManager {
     private let highScoreKey = "highScore"
 
     // Current game score — resets each new game
+    private(set) var currentLevel: Int = 0
     private(set) var currentScore: Int = 0
 
     // All-time best, persisted across sessions
@@ -38,6 +39,10 @@ class ScoreManager {
             return true
         }
         return false
+    }
+
+    func addLevel(_ level: Int = 1) {
+        currentLevel += level
     }
 
     // Call at the start of each new game
