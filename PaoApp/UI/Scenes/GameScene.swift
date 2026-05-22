@@ -148,15 +148,15 @@ final class GameScene: SKScene {
         addTapGesture(to: view)
         
         
-        for family in UIFont.familyNames.sorted() {
-            
-            print("FAMILY:", family)
-            
-            for name in UIFont.fontNames(forFamilyName: family) {
-                
-                print(" FONT:", name)
-            }
-        }
+//        for family in UIFont.familyNames.sorted() {
+//            
+//            print("FAMILY:", family)
+//            
+//            for name in UIFont.fontNames(forFamilyName: family) {
+//                
+//                print(" FONT:", name)
+//            }
+//        }
     }
     
     // MARK: - Spawning

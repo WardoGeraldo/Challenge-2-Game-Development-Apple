@@ -22,10 +22,20 @@ extension GameScene {
         pandaNode = SKSpriteNode(imageNamed: "pandaNode")
         collectBakpaoNode = SKSpriteNode(imageNamed: "bakpaoNode")
         bakpaoNode = SKSpriteNode(imageNamed: "bakpaoNode")
+//        pandaFrames = [
+//            SKTexture(imageNamed: "panda_1"),
+//            SKTexture(imageNamed: "panda_2")
+//        ]
+        let pandaAtlas = SKTextureAtlas(named: "Panda")
+
         pandaFrames = [
-            SKTexture(imageNamed: "panda_1"),
-            SKTexture(imageNamed: "panda_2")
+            pandaAtlas.textureNamed("panda_1"),
+            pandaAtlas.textureNamed("panda_2")
         ]
+        
+        pandaNode = SKSpriteNode(
+            texture: pandaFrames[0]
+        )
     }
     
     // MARK: - Overlay

@@ -25,6 +25,9 @@ extension GameScene: SKPhysicsContactDelegate {
         
         stateMachine.enter(GameFlyingState.self)
         
+        // START PANDA ANIMATION
+               startPandaAnimation()
+        
         // Fire all balls with staggered delay
         for i in 0..<volleyTotal {
             run(.sequence([
@@ -32,6 +35,19 @@ extension GameScene: SKPhysicsContactDelegate {
                 .run { [weak self] in self?.fireOneBall() }
             ]))
         }
+        
+        let totalShootDuration =
+                   TimeInterval(volleyTotal) * GameConstants.shootGap
+               
+               // STOP PANDA ANIMATION
+               
+               run(.sequence([
+                   .wait(forDuration: totalShootDuration),
+                   .run { [weak self] in
+                       self?.stopPandaAnimation()
+                   }
+               ]))
+        
     }
     
     func fireOneBall() {
@@ -261,5 +277,72 @@ extension GameScene: SKPhysicsContactDelegate {
                 }
         ]))
     }
+    
+    func startPandaAnimation() {
+            pandaNode?.removeAction(forKey: "pandaIdle")
+
+            guard let panda = pandaNode else { return }
+
+            // cegah animasi dobel
+            if panda.action(forKey: "walking") != nil {
+                return
+            }
+
+            let animate = SKAction.animate(
+                with: pandaFrames,
+                timePerFrame: 0.12
+            )
+
+            let loop = SKAction.repeatForever(animate)
+
+            panda.run(
+                loop,
+                withKey: "walking"
+            )
+        }
+        
+        func stopPandaAnimation() {
+
+            guard let panda = pandaNode else { return }
+
+            panda.removeAction(forKey: "walking")
+
+            // balik idle
+            panda.texture = pandaFrames[0]
+            startIdlePandaAnimation()
+        }
+        
+        func startIdlePandaAnimation() {
+
+            pandaNode?.removeAction(forKey: "pandaIdle")
+
+            let moveRight = SKAction.moveBy(
+                x: 0,
+                y: 2,
+                duration: 0.8
+            )
+
+            moveRight.timingMode = .easeInEaseOut
+
+            let moveLeft = SKAction.moveBy(
+                x: 0,
+                y: -2,
+                duration: 0.8
+            )
+
+            moveLeft.timingMode = .easeInEaseOut
+
+            let idleLoop = SKAction.repeatForever(
+                .sequence([
+                    moveRight,
+                    moveLeft
+                ])
+            )
+
+            pandaNode?.run(
+                idleLoop,
+                withKey: "pandaIdle"
+            )
+        }
     
 }
