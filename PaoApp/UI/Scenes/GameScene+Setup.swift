@@ -149,4 +149,25 @@ extension GameScene {
             addChild(grid)
         }
     }
+    
+    func addTapGesture(to view: SKView) {
+        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(onTap(_:))))
+    }
+    
+    @objc func onTap(_ g: UITapGestureRecognizer){
+        let viewPoint = g.location(in: view)
+        let scenePoint = convertPoint(fromView: viewPoint)
+        let tappedNodes = nodes(at: scenePoint)
+        
+        let hitPause = tappedNodes.contains {$0 === pauseButtonNode || $0.parent === pauseButtonNode}
+        
+        if hitPause {
+            pauseButtonNode?.run(.sequence([
+                .scale(to: 0.88, duration: 0.08),
+                .scale(to: 1.00, duration: 0.10)
+            ]))
+            self.isPaused = true
+            onPause?()
+        }
+    }
 }

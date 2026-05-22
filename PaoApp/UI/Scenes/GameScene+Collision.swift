@@ -199,25 +199,14 @@ extension GameScene {
             ballCount += 1
             
             HapticManager.shared.play(.medium)
-            
+
             animateAmmoGain(
                 from: node.position,
                 oldCount: previousCount,
                 newCount: ballCount
             )
-            
+
             refreshHUD()
-            
-            floatLabel(
-                "+1",
-                at: node.position,
-                color: UIColor(
-                    red: 0.45,
-                    green: 0.72,
-                    blue: 1.0,
-                    alpha: 1
-                )
-            )
         }
     }
     

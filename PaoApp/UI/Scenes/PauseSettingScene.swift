@@ -17,6 +17,9 @@ class PauseSettingScene: SKScene {
     private var isResumePressed = false
     private var isQuitPressed = false
     private var buttonOriginalScale: CGFloat = 1.0
+    
+    var currentScore: Int = 0
+    var highScore: Int = 0
 
     override func didMove(to view: SKView) {
         // You can add wobble or pulse animations here just like your HomeScene!
@@ -24,6 +27,21 @@ class PauseSettingScene: SKScene {
         if let resumeBtn = childNode(withName: "//resumeButtonNode") {
             buttonOriginalScale = resumeBtn.xScale
         }
+        let scoreLbl = SKLabelNode(fontNamed: "Melon-Pop")
+          scoreLbl.text = "High Score:"
+          scoreLbl.fontSize = 32
+          scoreLbl.fontColor = UIColor(red: 92/255, green: 53/255, blue: 22/255, alpha: 1)
+          scoreLbl.position = CGPoint(x: frame.midX, y: frame.midY + 100)  // tune y to fit your modal
+          scoreLbl.zPosition = 10
+          addChild(scoreLbl)
+
+          let highLbl = SKLabelNode(fontNamed: "Melon-Pop")
+          highLbl.text = "\(highScore)"
+          highLbl.fontSize = 26
+          highLbl.fontColor = UIColor(red: 233/255, green: 92/255, blue: 107/255, alpha: 1)
+          highLbl.position = CGPoint(x: frame.midX, y: frame.midY + 40)  // tune y to fit your modal
+          highLbl.zPosition = 10
+          addChild(highLbl)
     }
 
     // 3. Catching the Touches

@@ -15,7 +15,8 @@ struct GameOverViewModal: View {
         GeometryReader { proxy in
 
             SpriteView(
-                scene: makeScene(size: proxy.size)
+                scene: makeScene(size: proxy.size),
+                options: [.allowsTransparency]
             )
             .ignoresSafeArea()
             .frame(

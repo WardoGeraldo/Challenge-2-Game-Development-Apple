@@ -23,12 +23,11 @@ extension GameScene {
         
         guard stateMachine.currentState is GameAimState else { return }
         
-        let raw = g.translation(in: view)
-        
-        let angle = clampAngle(
-            dx: raw.x,
-            dy: -raw.y
-        )
+        let touchInView = g.location(in: view)
+                let touchInScene = convertPoint(fromView: touchInView)
+                let dx = touchInScene.x - shootX
+                let dy = touchInScene.y - shootY
+                let angle = clampAngle(dx: dx, dy: dy)
         
         switch g.state {
             
@@ -39,7 +38,7 @@ extension GameScene {
             // Simpan angle ke player component
             playerEntity?
                 .component(ofType: ControlComponent.self)?
-                .pointTo = CGPoint(x: raw.x, y: raw.y)
+                .pointTo = touchInScene
             
         case .ended, .cancelled:
             

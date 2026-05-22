@@ -89,9 +89,7 @@ extension GameScene: SKPhysicsContactDelegate {
         )
         
         volleyLanded += 1
-        
-        showNextMarker(x: clampedX)
-        
+
         if volleyLanded >= volleyTotal {
             endVolley()
         }

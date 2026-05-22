@@ -34,8 +34,7 @@ final class GameOverModalScene: SKScene {
     // MARK: - Lifecycle
 
     override func didMove(to view: SKView) {
-        backgroundColor =
-            UIColor.black.withAlphaComponent(0.45)
+        backgroundColor = .clear
 
         setupNodes()
         setupScoreTexts()

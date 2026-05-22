@@ -8,83 +8,116 @@
 import SpriteKit
 import SwiftUI
 
-// Presents GameScene using the full screen bounds (including safe area).
-// GameScene internally reads safe area insets to position content correctly.
 struct GameView: View {
     var onGameOver: () -> Void = { }
-    @State private var isPaused: Bool = false
-    @State private var showQuitConfirm: Bool = false
-    //    @State private var settings = SettingsManager()
-    
+    @State private var isPaused = false
+    @State private var showQuitConfirm = false
+    @State private var showGameOverModal = false
+    @State private var isNewHighScore = false
+    @State private var displayScore = 0
+    @State private var displayHighScore = 0
+    @State private var sceneSize: CGSize = .zero
+    @State private var gameScene: GameScene?
+    @State private var sessionID = 0
+
     var body: some View {
-        // 2. The ZStack creates the layers
         ZStack {
-            
-            // --- LAYER 1: THE GAME ---
+            // LAYER 1: THE GAME
             GeometryReader { geo in
-                SpriteView(scene: makeScene(size: geo.size))
-                    .ignoresSafeArea()
-            }
-            .ignoresSafeArea()
-            
-            // --- LAYER 2: THE PAUSE BUTTON ---
-            if !isPaused && !showQuitConfirm {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            isPaused = true
-                        }) {
-                            // Temporary placeholder button
-                            Image(systemName: "pause.circle.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white)
-                                .shadow(radius: 2)
+                ZStack {
+                    Color.clear
+                        .onAppear {
+                            guard gameScene == nil else { return }
+                            startNewGame(size: geo.size)
                         }
-                        .padding()
+                    if let scene = gameScene {
+                        SpriteView(scene: scene)
+                            .ignoresSafeArea()
+                            .id(sessionID)
                     }
-                    Spacer()
                 }
             }
-            
-            // --- LAYER 3: THE PAUSE MENU ---
+            .ignoresSafeArea()
+
+            // LAYER 2: PAUSE MENU
             if isPaused && !showQuitConfirm {
-                Color.black.opacity(0.5).ignoresSafeArea() // Dim background
-                
+                Color.black.opacity(0.5).ignoresSafeArea()
                 PauseViewModal(
-                    //                    settings: settings,
                     onResume: {
-                        print("RESUME CLICKED!")
-                        isPaused = false // This closes the pause menu
+                        gameScene?.isPaused = false
+                        isPaused = false
                     },
-                    onQuit: {
-                        print("QUIT CLICKED!")
-                        showQuitConfirm = true // This opens the quit menu
+                    onQuit: { showQuitConfirm = true },
+                    currentScore: ScoreManager.shared.currentScore,
+                    highScore: ScoreManager.shared.highScore
+                )
+            }
+
+            // LAYER 3: QUIT CONFIRMATION
+            if showQuitConfirm {
+                Color.black.opacity(0.7).ignoresSafeArea()
+                QuitViewModal(
+                    onConfirm: {
+                        gameScene = nil
+                        onGameOver()
+                    },
+                    onCancel: {
+                        showQuitConfirm = false
+                        isPaused = false
+                        gameScene?.isPaused = false
                     }
                 )
             }
-            
-            // --- LAYER 4: THE QUIT CONFIRMATION ---
-            if showQuitConfirm {
-                Color.black.opacity(0.7).ignoresSafeArea()
-                
-                QuitViewModal(
-                    onConfirm: { onGameOver() },
-                    onCancel: { showQuitConfirm = false }
-                )
+
+            // LAYER 4: GAME OVER MODAL
+            if showGameOverModal {
+                Color.black.opacity(0.5).ignoresSafeArea()
+                if isNewHighScore {
+                    NewHighScoreViewModal(
+                        score: displayScore,
+                        highscore: displayHighScore,
+                        onClose: {
+                            showGameOverModal = false
+                            onGameOver()
+                        },
+                        onPlayAgain: {
+                            showGameOverModal = false
+                            startNewGame(size: sceneSize)
+                        }
+                    )
+                } else {
+                    GameOverViewModal(
+                        score: displayScore,
+                        highscore: displayHighScore,
+                        onClose: {
+                            showGameOverModal = false
+                            onGameOver()
+                        },
+                        onPlayAgain: {
+                            showGameOverModal = false
+                            startNewGame(size: sceneSize)
+                        }
+                    )
+                }
             }
         }
     }
-    
-    private func makeScene(size: CGSize) -> GameScene {
+
+    private func startNewGame(size: CGSize) {
+        ScoreManager.shared.reset()
+        sceneSize = size
+        sessionID += 1
         let scene = GameScene(size: size)
-        // resizeFill keeps the scene exactly equal to the view — no letterboxing
         scene.scaleMode = .resizeFill
-        scene.onGameOver = onGameOver
-        
-        //By adding scene.isPaused = isPaused inside  makeScene function, you just created a two-way street. When the player taps the SwiftUI Pause button, the @State changes to true. SwiftUI instantly re-renders the view, shows the PauseView, and simultaneously tells your underlying Apple GameScene to freeze all physics and movement.
-        scene.isPaused = isPaused
-        return scene
+        scene.onPause = { isPaused = true }
+        scene.onGameOver = {
+            displayScore = ScoreManager.shared.currentScore
+            let newRecord = ScoreManager.shared.submit()
+            displayHighScore = ScoreManager.shared.highScore
+            isNewHighScore = newRecord
+            showGameOverModal = true
+        }
+        gameScene = scene
     }
 }
 

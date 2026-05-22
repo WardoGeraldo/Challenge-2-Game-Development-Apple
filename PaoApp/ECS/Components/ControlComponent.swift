@@ -36,8 +36,6 @@ class ControlComponent: GKComponent {
 }
 
 class VelocityComponent: GKComponent {
-    var hasRisen: Bool = false
-    var flightTime: CGFloat = 0
-    override init(){super.init()}
-    required init?(coder: NSCoder) {fatalError("init(coder:) has not been implemented")}
+    override init() { super.init() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

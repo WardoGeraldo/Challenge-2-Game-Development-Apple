@@ -11,6 +11,8 @@ import SpriteKit
 struct PauseViewModal: View {
     var onResume: () -> Void
     var onQuit: () -> Void
+    var currentScore: Int
+    var highScore: Int
     
     var body: some View {
         GeometryReader { proxy in
@@ -26,6 +28,8 @@ struct PauseViewModal: View {
         let scene = PauseSettingScene(fileNamed: "PauseSettingScene") ?? PauseSettingScene(size: size)
         
         scene.scaleMode = .aspectFill
+        scene.currentScore = currentScore
+        scene.highScore = highScore
         scene.onResume = onResume
         scene.onQuit = onQuit
         
@@ -39,6 +43,6 @@ struct PauseViewModal: View {
 #Preview {
     ZStack {
 //        Color.blue  //Placeholder game background
-        PauseViewModal(onResume: {}, onQuit: {})
+        PauseViewModal(onResume: {}, onQuit: {},currentScore: 0, highScore:0)
     }
 }

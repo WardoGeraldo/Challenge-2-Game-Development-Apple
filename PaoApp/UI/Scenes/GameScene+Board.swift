@@ -60,31 +60,30 @@ extension GameScene {
     // MARK: - Shooter Marker
 
     func placeShooterMarker() {
-        // Remove previous player entity
         if let prev = playerEntity {
             entityManager.remove(prev)
         }
 
-        let node = PlayerNode(
-            radius: GameConstants.ballRadius
-        )
+        // Invisible node — ECS bookkeeping only; panda is the visual
+        let node = SKNode()
         node.position = CGPoint(x: shootX, y: shootY)
 
         let entity = PlayerEntity(node: node)
         entityManager.add(entity)
         playerEntity = entity
+
         guard let panda = pandaNode else { return }
-            let target = CGPoint(x: shootX, y: shootY + 30)
-            if panda.parent == nil {
-                panda.size = CGSize(width: cell * 1.3, height: cell * 1.3)
-                panda.zPosition = 5
-                panda.position = target
-                addChild(panda)
-            } else {
-                let move = SKAction.move(to: target, duration: 0.22)
-                move.timingMode = .easeInEaseOut
-                panda.run(move)
-            }
+        let target = CGPoint(x: shootX, y: shootY + 30)
+        if panda.parent == nil {
+            panda.size = CGSize(width: cell * 1.3, height: cell * 1.3)
+            panda.zPosition = 5
+            panda.position = target
+            addChild(panda)
+        } else {
+            let move = SKAction.move(to: target, duration: 0.22)
+            move.timingMode = .easeInEaseOut
+            panda.run(move)
+        }
     }
     // MARK: - Board Advance
     // Moves all blocks/pickups down one row. Anything reaching the shooter row is removed (game-over trigger lives in endVolley).

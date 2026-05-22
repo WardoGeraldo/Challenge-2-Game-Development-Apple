@@ -49,6 +49,7 @@ final class GameScene: SKScene {
     var turnNumber    = 0
     
     var onGameOver: (() -> Void)?
+    var onPause: (() -> Void)?
     
     // Update time
     var lastUpdateTimeInterval: TimeInterval = 0
@@ -106,6 +107,10 @@ final class GameScene: SKScene {
     
     
     // MARK: - Entry Point
+    override func willMove(from view: SKView) {
+        view.gestureRecognizers?.forEach { view.removeGestureRecognizer($0) }
+    }
+
     override func didMove(to view: SKView) {
         scaleMode = .resizeFill
         SoundManager.shared.playBGM(track: .relaxAmbience, volume: 1.0)
@@ -140,6 +145,7 @@ final class GameScene: SKScene {
         placeShooterMarker()
         spawnInitialRows()
         addPanGesture(to: view)
+        addTapGesture(to: view)
         
         
         for family in UIFont.familyNames.sorted() {
@@ -220,23 +226,12 @@ final class GameScene: SKScene {
                   let body    = render.node.physicsBody,
                   body.isDynamic else { continue }
             let sprite = render.node
-            // Accumulate flight time and force-land any ball stuck for too long.
-            // This is the hard backstop against infinite horizontal bounce loops.
-            velComp.flightTime += dt
-            if velComp.flightTime > 10 {
-                ballLanded(entity: entity, ball: sprite)
-                continue
-            }
-            
             let v = body.velocity
-            
-            // Track rise above shooter row
-            if sprite.position.y > shootY + cell {
-                velComp.hasRisen = true
-            }
-            
-            // Detect landing: ball rose and returned to/below the shooter row moving down
-            if velComp.hasRisen && sprite.position.y <= shootY && v.dy <= 0 {
+
+            // Land when ball returns to shooter row with non-upward velocity.
+            // No hasRisen check needed: balls are always fired upward (angle clamped
+            // to ≥8°), so dy > 0 at shootY on departure — this only fires on return.
+            if sprite.position.y <= shootY && v.dy <= 0 {
                 ballLanded(entity: entity, ball: sprite)
                 continue
             }
