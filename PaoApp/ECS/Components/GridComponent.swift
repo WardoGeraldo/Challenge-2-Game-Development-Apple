@@ -7,6 +7,7 @@
 
 import Foundation
 import GameplayKit
+import SpriteKit
 
 class GridComponent: GKComponent {
     private var _row: Int

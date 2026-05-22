@@ -8,23 +8,6 @@
 import Foundation
 import GameplayKit
 
-// Collected when a ball makes contact; behaviour defined by ConsumableComponent.
-//class ItemBallEntity: GKEntity {
-//    init(node: SKNode, type: PickupType) {
-//        super.init()
-//        addComponent(RenderComponent(node))
-//        addComponent(TransformComponent(node.position, 0))
-//        addComponent(ConsumableComponent(type))
-//        if let body = node.physicsBody {
-//            addComponent(PhysicsComponent(body))
-//        }
-//    }
-//
-//    required init?(coder: NSCoder) {
-//        fatalError("init(coder:) has not been implemented")
-//    }
-//}
-
 class ItemBallEntity: GKEntity {
     init(
         row: Int,
@@ -39,12 +22,12 @@ class ItemBallEntity: GKEntity {
             x: CGFloat(col) * kCell + (kCell / 2),
             y: CGFloat(row) * kCell + (kCell / 2)
         )
-        addComponent(GridComponent(row: row, col: col))
         addComponent(
             TransformComponent(
                 position
             )
         )
+        addComponent(GridComponent(row: row, col: col))
 
         // Physics
         let physicsBody = makeItemBallPhysicsBody(scale: 1.0)
@@ -57,6 +40,8 @@ class ItemBallEntity: GKEntity {
                 entityToAdd: ballEntity,
             )
         )
+
+        ScoreManager.shared.addLevel(1)
     }
 
     required init?(coder: NSCoder) {

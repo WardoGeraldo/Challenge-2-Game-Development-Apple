@@ -2,68 +2,92 @@
 //  RandomManager.swift
 //  PaoApp
 //
-//  Created by Edward Geraldo Kristian on 11/05/26.
+//  Created by Saujana Shafi on 20/05/26.
 //
 
+import Foundation
 import GameplayKit
 
 class RandomManager {
-    // 1. Create a shared instance so the entire game uses the same 'deck'
-    static let shared = RandomManager() //singleton style
-    
-    // 2. The 10-card deck (1-10) to prevent unfair streaks
-    private let blockTypeDistribution: GKShuffledDistribution
-    
-    // 3. Regular random for the small -2 to +2 variance
-    private let varianceDistribution: GKRandomDistribution
-    
-    private let dynamicType1Threshold: Int
-    private let dynamicType2Threshold: Int
-    
-    // Private init ensures no one else can accidentally create a second deck
+    static let shared = RandomManager()
+
+    private let totalWeight: Int
+    private var randomEntity: GKShuffledDistribution
+    private var randomColumn: GKShuffledDistribution
+    private let randomVariance: GKRandomDistribution
+    private let randomQuantity: GKRandomDistribution
+
     private init() {
-        // Initialize the decks using the global variables from Constant
-        blockTypeDistribution = GKShuffledDistribution(
-            lowestValue: randomShuffledDistributionLowestValue,
-            highestValue: randomShuffledDistributionHighestValue
+        totalWeight = kRandom.allCases.reduce(0) { $0 + $1.weight }
+        randomEntity = RandomManager.makeEntityDistribution(
+            totalWeight: totalWeight
         )
-        
-        // Set the Variance Random ranging -2 to +2 from Constant
-        varianceDistribution = GKRandomDistribution(
-            lowestValue: randomMinVariance,
-            highestValue: randomMaxVariance
-        )
-        // Calculate thresholds dynamically based on the max deck size
-        dynamicType1Threshold = Int(Double(randomShuffledDistributionHighestValue) * randomBlockType1Probability)  // Boundary line for Type 1: The bottom 60% of the deck.
-        dynamicType2Threshold = Int(Double(randomShuffledDistributionHighestValue) * randomBlockType2Probability)  // Boundary line for Tier 2: The next 30% of the deck (Cumulative boundary = 90%).
+        randomColumn = RandomManager.makeColumnDistribution()
+        randomVariance = RandomManager.makeVarianceDistribution()
+        randomQuantity = RandomManager.makeQuantityDistribution()
     }
-    
-    // 4. The function to calculate HP based on your team's formula
-    func generateFairHP(currentAmmo: Int) -> Int {
-        // Draw a card from the deck (1 to the highest value)
-        let roll = blockTypeDistribution.nextInt()
-        
-        // Get a variance (-2, -1, 0, 1, or 2)
-        let variance = varianceDistribution.nextInt()
-        let baseMultiplier: Double
-        
-        // 60% chance (Cards 1-6)
-        if roll <= dynamicType1Threshold {
-            baseMultiplier = randomBlockType1Multiplier
+
+    // MARK: Methods
+
+    func getRandomEntity() -> kRandom {
+        let roll = randomEntity.nextInt()
+        var current = 0
+
+        for kind in kRandom.allCases {
+            current += kind.weight
+            if roll < current {
+                return kind
+            }
         }
-        // 30% chance (Cards 7-9)
-        else if roll <= dynamicType2Threshold {
-            baseMultiplier = randomBlockType2Multiplier
-        }
-        // 10% chance (Card 10) - Guaranteed to only happen once every 10 blocks
-        else {
-            baseMultiplier = randomBlockType3Multiplier
-        }
-        
-        let baseHP = Double(currentAmmo) * baseMultiplier
-        // Apply variance and ensure HP is at least 1
-        return max(1, Int(round(baseHP)) + variance)
+
+        return .lowBlock
+    }
+
+    func getRandomColumn() -> Int {
+        return randomColumn.nextInt()
+    }
+
+    func getRandomVariance() -> Int {
+        return randomVariance.nextInt()
+    }
+
+    func getRandomQuantity() -> Int {
+        return randomQuantity.nextInt()
+    }
+
+    func resetRandomColumn() {
+        randomColumn = RandomManager.makeColumnDistribution()
+    }
+
+    private static func makeEntityDistribution(
+        totalWeight: Int
+    ) -> GKShuffledDistribution {
+        GKShuffledDistribution(
+            randomSource: GKARC4RandomSource(),
+            lowestValue: 0,
+            highestValue: totalWeight - 1,
+        )
+    }
+
+    private static func makeColumnDistribution() -> GKShuffledDistribution {
+        GKShuffledDistribution(
+            randomSource: GKARC4RandomSource(),
+            lowestValue: 0,
+            highestValue: kColumns - 1,
+        )
+    }
+
+    private static func makeVarianceDistribution() -> GKRandomDistribution {
+        GKRandomDistribution(
+            lowestValue: randomMinVariance,
+            highestValue: randomMaxVariance,
+        )
+    }
+
+    private static func makeQuantityDistribution() -> GKRandomDistribution {
+        GKRandomDistribution(
+            lowestValue: kRandomGenerationsPerRowMin,
+            highestValue: kRandomGenerationsPerRowMax,
+        )
     }
 }
-
-// TODO: Double check max catches negative HP calcu, so a block never spawns with 0 HP

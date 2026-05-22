@@ -41,6 +41,8 @@ class HealthComponent: GKComponent {
         self.label = LabelNode(name: "healthLabel")
 
         super.init()
+        
+        self.health = health
     }
 
     override func didAddToEntity() {

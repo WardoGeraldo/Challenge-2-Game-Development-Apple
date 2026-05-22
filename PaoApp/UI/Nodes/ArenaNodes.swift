@@ -17,8 +17,8 @@ class ArenaShapeNode: SKShapeNode {
             height: kCell * scale * CGFloat(kRows),
         )
         let rect = CGRect(
-            x: -size.width / 2,
-            y: -size.height / 2,
+            x: .zero,
+            y: .zero,
             width: size.width,
             height: size.height,
         )
@@ -34,6 +34,8 @@ class ArenaShapeNode: SKShapeNode {
 
         self.lineWidth = 2
         self.name = "arena"
+
+        self.zPosition = 0
 
         let lightColor = SKColor(white: 0.18, alpha: 1)
         let darkColor = SKColor(white: 0.08, alpha: 1)
@@ -68,8 +70,8 @@ func makeArenaPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
         height: kCell * scale * CGFloat(kRows),
     )
     let rect = CGRect(
-        x: -size.width / 2,
-        y: -size.height / 2,
+        x: .zero,
+        y: .zero,
         width: size.width,
         height: size.height,
     )
@@ -82,8 +84,6 @@ func makeArenaPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
     body.restitution = 1.0
 
     body.categoryBitMask = PhysicsCategory.wall
-    body.collisionBitMask =
-        PhysicsCategory.ball | PhysicsCategory.item | PhysicsCategory.block
 
     return body
 }

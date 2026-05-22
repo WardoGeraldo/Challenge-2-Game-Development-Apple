@@ -26,19 +26,23 @@ import GameplayKit
 //}
 
 class PlayerEntity: GKEntity {
-    init(position: CGPoint) {
+    override init() {
         super.init()
 
         // Sprite
         let node = PlayerSpriteNode(scale: 1.0)
         addComponent(RenderComponent(node))
-
-        // Logic
+        let position = CGPoint(
+            x: CGFloat(kColumns / 2) * kCell + (kCell / 2),
+            y: CGFloat(0) * kCell + (kCell / 2)
+        )
         addComponent(
             TransformComponent(
                 position
             )
         )
+
+        // Logic
         addComponent(
             ControlComponent(
                 pointTo: position

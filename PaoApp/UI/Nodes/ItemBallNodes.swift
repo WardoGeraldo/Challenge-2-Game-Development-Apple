@@ -30,7 +30,7 @@ class ItemBallShapeNode: SKShapeNode {
         self.strokeColor = .white
 
         self.lineWidth = 2
-        self.name = "item-ball"
+        self.name = "itemBall"
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -62,7 +62,7 @@ func makeItemBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
     let radius = kCell * scale / 4
     let body = SKPhysicsBody(circleOfRadius: radius)
 
-    body.isDynamic = true
+    body.isDynamic = false
     body.affectedByGravity = false
 
     body.friction = 0.0
@@ -70,7 +70,6 @@ func makeItemBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
     body.restitution = 1.0
 
     body.categoryBitMask = PhysicsCategory.item
-    body.collisionBitMask = PhysicsCategory.block | PhysicsCategory.wall
 
     return body
 }

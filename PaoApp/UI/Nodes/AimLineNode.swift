@@ -13,7 +13,7 @@ class AimLineNode: SKShapeNode {
         super.init()
 
         self.strokeColor = .white
-        self.lineWidth = 2
+        self.lineWidth = kCell / 4
         self.lineCap = .round
         self.zPosition = 5
 

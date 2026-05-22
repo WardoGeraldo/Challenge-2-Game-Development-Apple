@@ -11,6 +11,8 @@ import GameplayKit
 class ControlComponent: GKComponent {
     var pointTo: CGPoint
 
+    var nextRoundPosition: CGPoint?
+
     var constraint: SKConstraint {
         return SKConstraint.orient(
             to: self.pointTo,

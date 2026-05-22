@@ -17,15 +17,15 @@ class GroundShapeNode: SKShapeNode {
             height: kCell * scale * CGFloat(kRows)
         )
         let rect = CGRect(
-            x: -size.width / 2,
-            y: -size.height / 2,
+            x: .zero,
+            y: .zero,
             width: size.width,
             height: size.height
         )
         let thickness = kCell * scale / 4
         let groundRect = CGRect(
-            x: rect.minX,
-            y: rect.minY,
+            x: .zero,
+            y: .zero,
             width: rect.width,
             height: thickness
         )
@@ -33,8 +33,10 @@ class GroundShapeNode: SKShapeNode {
         self.path = CGPath(rect: groundRect, transform: nil)
         self.fillColor = .clear
         self.strokeColor = .red
-        self.zPosition = 999
+
+        //        self.zPosition = 999
         self.lineWidth = 2
+
         self.name = "ground"
     }
 
@@ -49,8 +51,8 @@ func makeGroundPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
         height: kCell * scale * CGFloat(kRows)
     )
     let rect = CGRect(
-        x: -size.width / 2,
-        y: -size.height / 2,
+        x: .zero,
+        y: .zero,
         width: size.width,
         height: size.height
     )
@@ -60,15 +62,10 @@ func makeGroundPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
         to: CGPoint(x: rect.maxX, y: rect.minY)
     )
 
-    body.isDynamic = true
+    body.isDynamic = false
     body.affectedByGravity = false
-    body.pinned = true
-    body.friction = 0.0
-    body.restitution = 1.0
 
     body.categoryBitMask = PhysicsCategory.ground
-    body.contactTestBitMask =
-        PhysicsCategory.ball | PhysicsCategory.item | PhysicsCategory.block
 
     return body
 }

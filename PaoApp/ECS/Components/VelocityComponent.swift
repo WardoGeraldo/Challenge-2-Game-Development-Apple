@@ -9,11 +9,14 @@ import Foundation
 import GameplayKit
 
 class VelocityComponent: GKComponent {
+    private var _velocity: CGVector = .zero
+
     var velocity: CGVector {
         get {
-            physicsBody?.velocity ?? .zero
+            _velocity
         }
         set {
+            _velocity = newValue
             physicsBody?.velocity = newValue
         }
     }
@@ -27,11 +30,10 @@ class VelocityComponent: GKComponent {
     init(
         _ velocity: CGVector = CGVector(dx: 0, dy: 0),
     ) {
+        self._velocity = velocity
 
         super.init()
 
-        // Adding the newly made physics body to the parent's spriteNode
-        physicsBody?.isDynamic = true
         self.velocity = velocity
     }
 
@@ -41,7 +43,6 @@ class VelocityComponent: GKComponent {
         if let physicsComponent = entity?.component(
             ofType: PhysicsComponent.self
         ) {
-            physicsComponent.physicsBody.isDynamic = true
             physicsComponent.physicsBody.velocity = self.velocity
         }
     }

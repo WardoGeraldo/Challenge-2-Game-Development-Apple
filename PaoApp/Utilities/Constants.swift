@@ -11,10 +11,27 @@ let kCell: CGFloat = 48
 let kColumns: Int = 7
 let kRows: Int = 9
 
+let kProjectileInitial = 3
 let kProjectileShotInterval: TimeInterval = 0.2
 let kProjectileSpeed: CGFloat = 500
 
 // MARK: Random Statistics
+enum kRandom: CaseIterable {
+    case lowBlock
+    case mediumBlock
+    case highBlock
+    case itemBall
+
+    var weight: Int {
+        switch self {
+        case .lowBlock: return 6
+        case .mediumBlock: return 3
+        case .highBlock: return 1
+        case .itemBall: return 1
+        }
+    }
+}
+
 // Deck size
 let randomShuffledDistributionLowestValue = 1
 let randomShuffledDistributionHighestValue = 10  //Flexible can be changed later
@@ -32,6 +49,10 @@ let randomBlockType3Multiplier: Double = 1.5
 // Random Variance Range -2 to +2
 let randomMinVariance = -2
 let randomMaxVariance = 2
+
+// Random generations per row
+let kRandomGenerationsPerRowMin = 2
+let kRandomGenerationsPerRowMax = 4
 
 enum GameConstants {
     // Grid layout

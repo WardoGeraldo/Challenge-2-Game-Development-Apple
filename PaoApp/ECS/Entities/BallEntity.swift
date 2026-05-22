@@ -30,7 +30,7 @@ class BallEntity: GKEntity {
         super.init()
 
         // Sprite
-        let node = BallShapeNode(scale: 1.0)
+        let node = BallSpriteNode(scale: 1.0)
         addComponent(RenderComponent(node))
         addComponent(
             TransformComponent(

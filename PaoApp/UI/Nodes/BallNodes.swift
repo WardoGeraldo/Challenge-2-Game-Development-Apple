@@ -81,67 +81,9 @@ func makeBallPhysicsBody(scale: CGFloat) -> SKPhysicsBody {
     body.restitution = 1.0
 
     body.categoryBitMask = PhysicsCategory.ball
-    body.contactTestBitMask = PhysicsCategory.block | PhysicsCategory.item
+    body.contactTestBitMask =
+        PhysicsCategory.block | PhysicsCategory.item | PhysicsCategory.ground
     body.collisionBitMask = PhysicsCategory.block | PhysicsCategory.wall
 
     return body
-}
-
-// TODO: [UI/Node Team] Implement BallNode — the visual for a ball in flight.
-//
-// BallNode is used by BallEntity's RenderComponent.
-//
-// Minimum required:
-//   - An SKSpriteNode or SKShapeNode circle with radius = GameConstants.ballRadius
-//   - Use the "bakpaoAmmo" image asset if available (SKSpriteNode(imageNamed: "bakpaoAmmo"))
-//   - Set zPosition = 5
-//
-// The physics body is added separately by BallEntity (or PhysicsComponent),
-// so BallNode itself does NOT need to set physicsBody.
-//
-// Expected init:
-//   init(radius: CGFloat)
-
-// MARK: - AmmoPickupNode
-
-// Bakpao pickup — same asset as the thrown ball, sized to match the grid cell.
-class AmmoPickupNode: SKNode {
-    init(cell: CGFloat) {
-        super.init()
-        let size = cell * 0.82
-
-        let sprite = SKSpriteNode(imageNamed: "bakpaoNode")
-        sprite.size = CGSize(width: size, height: size)
-        addChild(sprite)
-
-        name = "pickup_ammo"
-        zPosition = 3
-
-        let body = SKPhysicsBody(circleOfRadius: size * 0.45)
-        body.isDynamic = false
-        body.categoryBitMask = PhysicsCategory.pickup
-        body.collisionBitMask = 0
-        body.contactTestBitMask = PhysicsCategory.ball
-        physicsBody = body
-
-        run(
-            .repeatForever(
-                .sequence([
-                    .moveBy(x: 0, y: 3, duration: 0.6),
-                    .moveBy(x: 0, y: -3, duration: 0.6),
-                ])
-            )
-        )
-        run(
-            .repeatForever(
-                .sequence([
-                    .scale(to: 1.08, duration: 0.9),
-                    .scale(to: 0.94, duration: 0.9),
-                ])
-            )
-        )
-    }
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
 }
