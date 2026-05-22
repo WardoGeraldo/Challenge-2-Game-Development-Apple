@@ -14,10 +14,8 @@ class GameAimState: GameState {
     // MARK: Initialization
 
     // MARK: GKState overrides
-
     override func didEnter(from previousState: GKState?) {
         super.didEnter(from: previousState)
-
         // TODO: Implement draw aiming line
     }
 

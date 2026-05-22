@@ -108,6 +108,7 @@ final class GameScene: SKScene {
     // MARK: - Entry Point
     override func didMove(to view: SKView) {
         scaleMode = .resizeFill
+        SoundManager.shared.playBGM(track: .relaxAmbience, volume: 1.0)
         entityManager    = EntityManager(scene: self)
         movementSystem   = MovementSystem()
         collisionSystem  = CollisionSystem()
