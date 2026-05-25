@@ -17,14 +17,13 @@ class SoundManager {
     //list of background musics
     enum BGMTrack: String {
         case mainTheme = "backgroundMusic"
-        case relaxAmbience = "ambience"
+        case relaxAmbience = "ambienceBGM"
     }
     //list of Sound Effects
     enum SFX: String {
         case hitBlock = "hitBlockSFX.wav"
         case pandaShoot = "pandaShootSFX.wav"
         case ammoCollect = "ammoSFX.wav"
-        case blockDestroyed = "blockDestroyedSFX.wav"
         case gameOver = "gameOverSFX.wav"
         case highScore = "newHighscoreSFX.wav"
         case playAndPause = "playAndPauseSFX.wav"
