@@ -10,6 +10,9 @@ import Foundation
 import GameplayKit
 
 enum BlockType {
+    case low
+    case medium
+    case high
     case normal
     case triangle(flipped: Bool)
     case bomb

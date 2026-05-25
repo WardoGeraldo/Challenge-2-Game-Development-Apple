@@ -38,26 +38,35 @@ class RandomManager {
         dynamicType2Threshold = Int(Double(randomShuffledDistributionHighestValue) * randomBlockType2Probability)  // Boundary line for Tier 2: The next 30% of the deck (Cumulative boundary = 90%).
     }
     
-    // 4. The function to calculate HP based on your team's formula
-    func generateFairHP(currentAmmo: Int) -> Int {
+    func generateBlockType() -> BlockType {
         // Draw a card from the deck (1 to the highest value)
         let roll = blockTypeDistribution.nextInt()
-        
+
+        switch roll {
+        case 1...dynamicType1Threshold:
+            return .low
+        case (dynamicType1Threshold + 1)...dynamicType2Threshold:
+            return .medium
+        default:
+            return .high
+        }
+    }
+    
+    // 4. The function to calculate HP based on your team's formula
+    func generateFairHP(currentAmmo: Int, type: BlockType) -> Int {
         // Get a variance (-2, -1, 0, 1, or 2)
         let variance = varianceDistribution.nextInt()
         let baseMultiplier: Double
         
-        // 60% chance (Cards 1-6)
-        if roll <= dynamicType1Threshold {
+        switch type {
+        case .low:
             baseMultiplier = randomBlockType1Multiplier
-        }
-        // 30% chance (Cards 7-9)
-        else if roll <= dynamicType2Threshold {
+        case .medium:
             baseMultiplier = randomBlockType2Multiplier
-        }
-        // 10% chance (Card 10) - Guaranteed to only happen once every 10 blocks
-        else {
+        case .high:
             baseMultiplier = randomBlockType3Multiplier
+        default:
+            baseMultiplier = randomBlockType1Multiplier
         }
         
         let baseHP = Double(currentAmmo) * baseMultiplier
