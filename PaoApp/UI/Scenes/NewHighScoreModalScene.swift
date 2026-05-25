@@ -253,6 +253,7 @@ final class NewHighScoreModalScene: SKScene {
     // MARK: - Animations
 
     private func animateModalIn() {
+        SoundManager.shared.playSFX(.highScore, on: self)
 
         guard let modal = newHighScoreModalNode else { return }
 
@@ -341,8 +342,8 @@ final class NewHighScoreModalScene: SKScene {
             || touchedNode.parent?.name == "xButtonNode" {
 
             if let xButtonNode {
-
                 animateButtonPress(xButtonNode)
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             }
 
             dismissModal { [weak self] in
@@ -353,9 +354,10 @@ final class NewHighScoreModalScene: SKScene {
 
         if touchedNode.name == "playAgainButtonNode"
             || touchedNode.parent?.name == "playAgainButtonNode" {
-
+            
             if let playAgainButtonNode {
                 animateButtonPress(playAgainButtonNode)
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             }
 
             dismissModal { [weak self] in
