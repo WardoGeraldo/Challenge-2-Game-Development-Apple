@@ -25,6 +25,7 @@ struct GameView: View {
             // LAYER 1: THE GAME
             GeometryReader { geo in
                 ZStack {
+                    Color.black.ignoresSafeArea()
                     Color.clear
                         .onAppear {
                             guard gameScene == nil else { return }
@@ -40,34 +41,38 @@ struct GameView: View {
             .ignoresSafeArea()
 
             // LAYER 2: PAUSE MENU
-            if isPaused && !showQuitConfirm {
-                Color.black.opacity(0.5).ignoresSafeArea()
-                PauseViewModal(
-                    onResume: {
-                        gameScene?.isPaused = false
-                        isPaused = false
-                    },
-                    onQuit: { showQuitConfirm = true },
-                    currentScore: ScoreManager.shared.currentScore,
-                    highScore: ScoreManager.shared.highScore
-                )
-            }
+            let showPause = isPaused && !showQuitConfirm
+            Color.black.opacity(showPause ? 0.5 : 0).ignoresSafeArea()
+                .allowsHitTesting(false)
+            PauseViewModal(
+                onResume: {
+                    gameScene?.isPaused = false
+                    isPaused = false
+                },
+                onQuit: { showQuitConfirm = true },
+                currentScore: ScoreManager.shared.currentScore,
+                highScore: ScoreManager.shared.highScore
+            )
+            .opacity(showPause ? 1 : 0)
+            .allowsHitTesting(showPause)
 
             // LAYER 3: QUIT CONFIRMATION
-            if showQuitConfirm {
-                Color.black.opacity(0.7).ignoresSafeArea()
-                QuitViewModal(
-                    onConfirm: {
-                        gameScene = nil
-                        onGameOver()
-                    },
-                    onCancel: {
-                        showQuitConfirm = false
-                        isPaused = false
-                        gameScene?.isPaused = false
-                    }
-                )
-            }
+            Color.black.opacity(showQuitConfirm ? 0.7 : 0).ignoresSafeArea()
+                .allowsHitTesting(false)
+            QuitViewModal(
+                onConfirm: {
+                    ScoreManager.shared.submit()
+                    gameScene = nil
+                    onGameOver()
+                },
+                onCancel: {
+                    showQuitConfirm = false
+                    isPaused = false
+                    gameScene?.isPaused = false
+                }
+            )
+            .opacity(showQuitConfirm ? 1 : 0)
+            .allowsHitTesting(showQuitConfirm)
 
             // LAYER 4: GAME OVER MODAL
             if showGameOverModal {
@@ -108,6 +113,7 @@ struct GameView: View {
         sceneSize = size
         sessionID += 1
         let scene = GameScene(size: size)
+        scene.backgroundColor = .black 
         scene.scaleMode = .resizeFill
         scene.onPause = { isPaused = true }
         scene.onGameOver = {

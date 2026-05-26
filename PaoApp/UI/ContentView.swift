@@ -11,11 +11,11 @@ struct ContentView: View {
     @State private var isPlaying = false
 
     var body: some View {
-        if isPlaying {
-            GameView(onGameOver: {
-                isPlaying = false })
-        } else {
+        ZStack {
             HomeView(onPlay: { isPlaying = true })
+            if isPlaying {
+                GameView(onGameOver: { isPlaying = false })
+            }
         }
     }
 }
