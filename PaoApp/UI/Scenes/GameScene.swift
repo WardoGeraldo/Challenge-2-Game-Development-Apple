@@ -182,9 +182,9 @@ final class GameScene: SKScene {
         for c in 0..<GameConstants.cols {
             let pos = cellCenter(col: c, row: row)
             if blockCols.contains(c) {
-                let hp   = RandomManager.shared.generateFairHP(currentAmmo: ballCount)
+                let type = RandomManager.shared.generateBlockType()
+                let hp   = RandomManager.shared.generateFairHP(currentAmmo: ballCount, type: type)
                 //                let type = RandomManager.shared.randomBlockType(turnNumber: turnNumber)
-                let type: BlockType = .normal
                 addBlockEntity(at: pos, type: type, hp: hp)
             } else if c == ammoCol {
                 addPickupEntity(at: pos, type: .ammo)

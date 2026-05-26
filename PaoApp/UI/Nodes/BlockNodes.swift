@@ -39,6 +39,12 @@ class BlockNode: SKNode {
         node.setScale(0.2)
         
         switch type {
+        case .low:
+            node.buildNormal(hp: hp, ballCount: ballCount, cell: cell)
+        case .medium:
+            node.buildNormal(hp: hp, ballCount: ballCount, cell: cell, imageNamed: "yellowBlockNode")
+        case .high:
+            node.buildNormal(hp: hp, ballCount: ballCount, cell: cell, imageNamed: "pinkBlockNode")
         case .normal:
             node.buildNormal(hp: hp, ballCount: ballCount, cell: cell)
         case .triangle(let flipped):
@@ -84,7 +90,8 @@ class BlockNode: SKNode {
     private func buildNormal(
         hp: Int,
         ballCount: Int,
-        cell: CGFloat
+        cell: CGFloat,
+        imageNamed: String = "greenBlockNode"
     ) {
         
         let visualSize = cell
@@ -92,7 +99,7 @@ class BlockNode: SKNode {
         //
         // BLOCK SPRITE
         //
-        let sprite = SKSpriteNode(imageNamed: "greenBlockNode")
+        let sprite = SKSpriteNode(imageNamed: imageNamed)
         
         sprite.size = CGSize(
             width: visualSize,
