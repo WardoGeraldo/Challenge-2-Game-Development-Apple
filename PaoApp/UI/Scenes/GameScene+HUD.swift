@@ -25,8 +25,8 @@ extension GameScene {
         addChild(ammoContainer)
 
         ammoContainer.position = CGPoint(
-            x: shootX - 24,
-            y: shootY
+            x: shootX,
+            y: shootY - cell * 0.5
         )
 
         // Label jumlah bakpao
@@ -98,7 +98,8 @@ extension GameScene {
         }
 
         let size: CGFloat = GameConstants.ballRadius * 1.75
-        let maxWidth: CGFloat = 120
+//        let maxWidth: CGFloat = 120
+        let maxWidth: CGFloat = gridW - cell * 1.2
         let spacing: CGFloat
        
         if ballCount <= 5 {
@@ -109,7 +110,8 @@ extension GameScene {
             spacing = size * 0.28
         }
 
-        let totalWidth = CGFloat(max(ballCount - 1, 0)) * spacing
+        let totalWidth =
+            CGFloat(max(ballCount - 1, 0)) * spacing + size
         let clampedWidth = min(totalWidth, maxWidth)
         let finalSpacing: CGFloat
 
@@ -122,7 +124,22 @@ extension GameScene {
             finalSpacing = spacing
         }
 
-        let startX = CGFloat(0)
+//        let startX = CGFloat(0)
+        let leftLimit = -(gridW / 2) + size
+        let rightLimit = (gridW / 2) - size
+
+        var startX = -clampedWidth / 2 + size / 2
+
+        let finalRight =
+        startX + CGFloat(ballCount - 1) * finalSpacing
+
+        if finalRight > rightLimit {
+            startX -= (finalRight - rightLimit)
+        }
+
+        if startX < leftLimit {
+            startX = leftLimit
+        }
 
         for i in 0..<ballCount {
 
@@ -177,13 +194,13 @@ extension GameScene {
         newCount: Int
     ) {
 
-        // Ukuran pickup asli
-        let pickupSize = cell * 0.82
+        // ===== SIZE =====
 
-        // Ukuran HUD
+        let pickupSize = cell * 0.82
         let hudSize = GameConstants.ballRadius * 1.75
 
-        // Spawn di scene langsung
+        // ===== CREATE FLYING NODE =====
+
         guard let flying = collectBakpaoNode?.copy() as? SKSpriteNode else {
             return
         }
@@ -198,7 +215,7 @@ extension GameScene {
 
         addChild(flying)
 
-        // ===== TARGET HUD POSITION =====
+        // ===== SPACING =====
 
         let spacing: CGFloat
 
@@ -210,22 +227,54 @@ extension GameScene {
             spacing = hudSize * 0.28
         }
 
-        let maxWidth: CGFloat = 120
+        let maxWidth = gridW - cell * 1.2
+
+        let totalWidth =
+            CGFloat(max(newCount - 1, 0)) * spacing + hudSize
+
+        let clampedWidth = min(totalWidth, maxWidth)
 
         let finalSpacing: CGFloat
 
         if newCount > 1 {
+
             finalSpacing = min(
                 spacing,
-                maxWidth / CGFloat(newCount - 1)
+                (clampedWidth - hudSize)
+                / CGFloat(newCount - 1)
             )
+
         } else {
+
             finalSpacing = spacing
         }
 
-        // Convert target HUD position → scene coordinate
+        // ===== CLAMP TARGET POSITION =====
+
+        let leftLimit = -(gridW / 2) + hudSize / 2
+        let rightLimit = (gridW / 2) - hudSize / 2
+
+        var startX =
+            -clampedWidth / 2 + hudSize / 2
+
+        let finalRight =
+            startX
+            + CGFloat(newCount - 1) * finalSpacing
+
+        // Geser kalau keluar kanan
+        if finalRight > rightLimit {
+            startX -= (finalRight - rightLimit)
+        }
+
+        // Geser kalau keluar kiri
+        if startX < leftLimit {
+            startX = leftLimit
+        }
+
+        // ===== TARGET HUD POSITION =====
+
         let localTarget = CGPoint(
-            x: CGFloat(newCount - 1) * finalSpacing,
+            x: startX + CGFloat(newCount - 1) * finalSpacing,
             y: CGFloat.random(in: -2...2)
         )
 
@@ -234,7 +283,7 @@ extension GameScene {
             to: self
         )
 
-        // ===== FALL DOWN =====
+        // ===== DROP =====
 
         let drop = SKAction.moveBy(
             x: 0,
@@ -244,7 +293,8 @@ extension GameScene {
 
         drop.timingMode = .easeIn
 
-        // Squash saat jatuh
+        // ===== SQUASH =====
+
         let squash = SKAction.sequence([
 
             .group([
@@ -258,7 +308,7 @@ extension GameScene {
             ])
         ])
 
-        // ===== FLY TO HUD =====
+        // ===== FLY =====
 
         let fly = SKAction.move(
             to: targetPos,
@@ -283,29 +333,30 @@ extension GameScene {
         // ===== POP =====
 
         let pop = SKAction.sequence([
-            .scale(to: 1.2, duration: 0.08),
-            .scale(to: 1.0, duration: 0.12)
+            .scale(to: 1.12, duration: 0.08),
+            .scale(to: 1.0, duration: 0.10)
         ])
+
+        // ===== RUN =====
 
         flying.run(.sequence([
 
-            // Jatuh dulu
+            // Jatuh
             .group([
                 drop,
                 squash
             ]),
 
-            // Pause biar kerasa
             .wait(forDuration: 0.12),
 
-            // Terbang ke HUD
+            // Fly ke HUD
             .group([
                 fly,
                 shrink,
                 rotate
             ]),
 
-            // Pop masuk HUD
+            // Pop kecil
             pop,
 
             .run { [weak self] in
@@ -320,7 +371,7 @@ extension GameScene {
 
         let target = CGPoint(
             x: shootX,
-            y: shootY - 4
+            y: shootY - cell * 0.5
         )
 
         if animated {
