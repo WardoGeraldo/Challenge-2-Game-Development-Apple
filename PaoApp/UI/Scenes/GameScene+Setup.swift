@@ -46,7 +46,6 @@ extension GameScene {
             print("GameScene.sks not found")
             return
         }
-        
         guard let overlayNode = scene.childNode(withName: "//overlayNode") else {
             print("overlayNode not found")
             return
@@ -74,6 +73,10 @@ extension GameScene {
         print("bakpaoCountFrameNode:", bakpaoCountFrameNode != nil)
         print("pauseFrameNode:", pauseFrameNode != nil)
         print("pauseButtonNode:", pauseButtonNode != nil)
+        bakpaoCountFrameNode?.position.y -= 20
+
+        pauseFrameNode?.position.y -= 20
+        pauseButtonNode?.position.y -= 20
     }
     
     // MARK: - Walls
@@ -134,16 +137,27 @@ extension GameScene {
             self.bgCheckeredNode = grid
         
             let textureSize = grid.texture?.size() ?? CGSize(
-                width: 100,
-                height: 100
+                width: 80,
+                height: 80
             )
-            let targetWidth = frame.width * 0.94
+//            let targetWidth = frame.width * 0.94
+//            let aspectRatio =
+//            textureSize.height / textureSize.width
+//            
+//            let targetHeight =
+//            targetWidth * aspectRatio
+//            
+//            gridW = targetWidth
+//            gridH = targetHeight
+            
+            let targetWidth = frame.width * 0.94 * gridScale
+
             let aspectRatio =
             textureSize.height / textureSize.width
-            
+
             let targetHeight =
             targetWidth * aspectRatio
-            
+
             gridW = targetWidth
             gridH = targetHeight
             

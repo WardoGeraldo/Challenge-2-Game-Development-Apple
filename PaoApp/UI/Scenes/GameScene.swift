@@ -22,6 +22,7 @@ final class GameScene: SKScene {
     var gridH:      CGFloat = 0
     var shootY:     CGFloat = 0
     var shootX:     CGFloat = 0
+    var gridScale: CGFloat = 0.9
     var visualBlockSize: CGFloat {
         cell * 0.78
     }

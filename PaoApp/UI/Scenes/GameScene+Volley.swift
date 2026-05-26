@@ -88,7 +88,7 @@ extension GameScene: SKPhysicsContactDelegate {
         // Snap ke floor
         ball.position = CGPoint(
             x: clampedX,
-            y: shootY
+            y: shootY - cell * 0.5
         )
         
         // Simpan node
@@ -149,62 +149,97 @@ extension GameScene: SKPhysicsContactDelegate {
     }
     
     func repositionLandedBallsAroundPlayer() {
-        
+
         guard !landedBallNodes.isEmpty else { return }
-        
+
+        let size: CGFloat = GameConstants.ballRadius * 1.75
+
         // Dynamic spacing
         let spacing: CGFloat
-        
+
         if landedBallNodes.count <= 5 {
-            spacing = 16
+            spacing = size * 0.72
         } else if landedBallNodes.count <= 12 {
-            spacing = 12
+            spacing = size * 0.48
         } else {
-            spacing = 8
+            spacing = size * 0.28
         }
-        
-        // Total width
+
+        // Width total semua bakpao
         let totalWidth =
-        CGFloat(landedBallNodes.count - 1) * spacing
-        
-        // Clamp supaya ga keluar layar
-        let minX = gridOrigin.x + 20
-        let maxX = gridOrigin.x + gridW - totalWidth - 20
-        
-        let startX = min(
-            max(shootX - totalWidth / 2, minX),
-            maxX
-        )
-        
-        for (index, ball) in landedBallNodes.enumerated() {
-            
-            ball.removeAction(forKey: "idleFloat")
-            
-            let target = CGPoint(
-                x: startX + CGFloat(index) * spacing,
-                y: shootY
+            CGFloat(max(landedBallNodes.count - 1, 0)) * spacing + size
+
+        // Batas maksimal dalam grid
+        let maxWidth = gridW - cell * 1.2
+
+        let clampedWidth = min(totalWidth, maxWidth)
+
+        let finalSpacing: CGFloat
+
+        if landedBallNodes.count > 1 {
+            finalSpacing = min(
+                spacing,
+                (clampedWidth - size)
+                / CGFloat(landedBallNodes.count - 1)
             )
-            
+        } else {
+            finalSpacing = spacing
+        }
+
+        // ===== Clamp Position =====
+
+        let leftLimit = gridOrigin.x + size / 2
+        let rightLimit = gridOrigin.x + gridW - size / 2
+
+        var startX =
+            shootX - clampedWidth / 2 + size / 2
+
+        let finalRight =
+            startX
+            + CGFloat(landedBallNodes.count - 1) * finalSpacing
+
+        // Geser ke kiri kalau keluar kanan
+        if finalRight > rightLimit {
+            startX -= (finalRight - rightLimit)
+        }
+
+        // Geser ke kanan kalau keluar kiri
+        if startX < leftLimit {
+            startX = leftLimit
+        }
+
+        // ===== Animate =====
+
+        for (index, ball) in landedBallNodes.enumerated() {
+
+            ball.removeAction(forKey: "idleFloat")
+
+            let target = CGPoint(
+                x: startX + CGFloat(index) * finalSpacing,
+                y: shootY - cell * 0.5
+            )
+
             let move = SKAction.move(
                 to: target,
                 duration: 0.32
             )
-            
+
             move.timingMode = .easeInEaseOut
-            
-            let bounce = SKAction.sequence([
-                .moveBy(x: 0, y: 4, duration: 0.08),
-                .moveBy(x: 0, y: -4, duration: 0.10)
-            ])
-            
+
             let rotate = SKAction.rotate(
                 toAngle: CGFloat.random(in: -0.15...0.15),
                 duration: 0.2
             )
-            
+
+            let pop = SKAction.sequence([
+                .scale(to: 1.08, duration: 0.06),
+                .scale(to: 1.0, duration: 0.08)
+            ])
+
             ball.run(.group([
-                .sequence([move, bounce]),
-                rotate
+                move,
+                rotate,
+                pop
             ]))
         }
     }

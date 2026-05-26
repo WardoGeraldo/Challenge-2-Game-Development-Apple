@@ -73,7 +73,7 @@ extension GameScene {
         playerEntity = entity
 
         guard let panda = pandaNode else { return }
-        let target = CGPoint(x: shootX, y: shootY + 30)
+        let target = CGPoint(x: shootX, y: shootY + 10)
         if panda.parent == nil {
             panda.size = CGSize(width: cell * 1.3, height: cell * 1.3)
             panda.zPosition = 5

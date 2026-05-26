@@ -13,25 +13,53 @@ extension GameScene {
 
     // MARK: - Grid Layout
     // Derives cell size, grid origin, and shooter position from the screen frame.
+//    func computeLayout(in view: SKView) {
+//        
+//        gridW = frame.width * 0.94
+//        cell = gridW / CGFloat(GameConstants.cols)
+//        
+//        gridH = cell * CGFloat(GameConstants.blockRows + 1)
+//        
+//        // sementara center dulu
+//        let gridX = frame.midX - gridW / 2
+//        let gridY = frame.midY - gridH / 2 - 50
+//        
+//        gridOrigin = CGPoint(
+//            x: gridX,
+//            y: gridY
+//        )
+//        
+//        shootX = frame.midX
+//        
+//        // posisi shooter
+//        shootY = cellCenter(
+//            col: 0,
+//            row: GameConstants.blockRows
+//        ).y
+//    }
+    
     func computeLayout(in view: SKView) {
-        
-        gridW = frame.width * 0.94
+
+        // ukuran grid mengikuti bgCheckeredNode
+        gridW = frame.width * 0.94 * gridScale
+
+        // cell otomatis ikut mengecil
         cell = gridW / CGFloat(GameConstants.cols)
-        
+
+        // tinggi grid mengikuti jumlah row
         gridH = cell * CGFloat(GameConstants.blockRows + 1)
-        
-        // sementara center dulu
+
+        // posisi grid tetap center
         let gridX = frame.midX - gridW / 2
-        let gridY = frame.midY - gridH / 2 - 50
-        
+        let gridY = frame.midY - gridH / 2 - 20
+
         gridOrigin = CGPoint(
             x: gridX,
             y: gridY
         )
-        
+
         shootX = frame.midX
-        
-        // posisi shooter
+
         shootY = cellCenter(
             col: 0,
             row: GameConstants.blockRows
