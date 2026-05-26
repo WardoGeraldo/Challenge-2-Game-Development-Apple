@@ -64,6 +64,7 @@ class QuitConfirmationScene: SKScene {
             isYesPressed = false
             yesNode?.run(SKAction.scale(to: yesOriginalScale, duration: 0.1))
             onConfirm?()
+            SoundManager.shared.playBGM(track: .mainTheme)
         }
 
         if isNoPressed {

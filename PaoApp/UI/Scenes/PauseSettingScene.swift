@@ -23,23 +23,23 @@ class PauseSettingScene: SKScene {
     var highScore: Int = 0
 
     override func didMove(to view: SKView) {
-        let scoreBackground = makeRoundedBackground(size: CGSize(width: 250, height: 60))
-        scoreBackground.position = CGPoint(x: frame.midX, y: frame.midY + 25)
+        let scoreBackground = makeRoundedBackground(size: CGSize(width: 210, height: 54))
+        scoreBackground.position = CGPoint(x: frame.midX, y: frame.midY + 45)
         addChild(scoreBackground)
 
         let scoreLbl = SKLabelNode(fontNamed: "Melon-Pop")
-        scoreLbl.text = "High Score:"
-        scoreLbl.fontSize = 32
+        scoreLbl.text = "HIGHSCORE"
+        scoreLbl.fontSize = 20
         scoreLbl.fontColor = UIColor(red: 92/255, green: 53/255, blue: 22/255, alpha: 1)
-        scoreLbl.position = CGPoint(x: frame.midX, y: frame.midY + 70)
+        scoreLbl.position = CGPoint(x: frame.midX, y: frame.midY + 80)
         scoreLbl.zPosition = 10
         addChild(scoreLbl)
 
         let highLbl = SKLabelNode(fontNamed: "Melon-Pop")
         highLbl.text = "\(highScore)"
-        highLbl.fontSize = 32
+        highLbl.fontSize = 34
         highLbl.fontColor = UIColor(red: 233/255, green: 92/255, blue: 107/255, alpha: 1)
-        highLbl.position = CGPoint(x: frame.midX, y: frame.midY + 10)
+        highLbl.position = CGPoint(x: frame.midX, y: frame.midY + 30)
         highLbl.zPosition = 10
         addChild(highLbl)
     }
