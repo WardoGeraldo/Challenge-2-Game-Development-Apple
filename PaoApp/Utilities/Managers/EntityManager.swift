@@ -5,64 +5,66 @@
 //  Created by Saujana Shafi on 07/05/26.
 //
 
+//  EntityManager.swift
 import Foundation
 import GameplayKit
+import SpriteKit
+
+protocol AnyComponentSystem {
+    func add(foundIn entity: GKEntity)
+    func remove(foundIn entity: GKEntity)
+    func update(deltaTime: TimeInterval)
+}
+
+private struct ComponentSystemBox<T: GKComponent>: AnyComponentSystem {
+    let system: GKComponentSystem<T>
+    func add(foundIn entity: GKEntity)    { system.addComponent(foundIn: entity) }
+    func remove(foundIn entity: GKEntity) { system.removeComponent(foundIn: entity) }
+    func update(deltaTime: TimeInterval)  { system.update(deltaTime: deltaTime) }
+}
 
 final class EntityManager {
-    var entities = Set<GKEntity>()
-    let scene: SKScene
+    private(set) var entities: Set<GKEntity> = []
+    private var toRemove: Set<GKEntity> = []
+    private weak var scene: SKScene?
 
-    // TODO: Add component systems here
-    lazy var componentSystems: [GKComponentSystem] = {
-        //        let castleSystem = GKComponentSystem(componentClass: CastleComponent.self)
-        //        let moveSystem = GKComponentSystem(componentClass: MoveComponent.self)
-        //        return [castleSystem, moveSystem]
-
-        //        let collisionSystem =
-        return []
+    lazy var componentSystems: [AnyComponentSystem] = {
+        [
+            ComponentSystemBox(system: ControllerSystem())
+        ]
     }()
 
-    var toRemove = Set<GKEntity>()
-
-    init(scene: SKScene) {
-        self.scene = scene
-    }
+    init(scene: SKScene) { self.scene = scene }
 
     func add(_ entity: GKEntity) {
         entities.insert(entity)
-
-        if let skNode = entity.component(ofType: RenderComponent.self)?.node {
-            scene.addChild(skNode)
+        if let node = entity.component(ofType: RenderComponent.self)?.node {
+            scene?.addChild(node)
         }
-
-        for componentSystem in componentSystems {
-            componentSystem.addComponent(foundIn: entity)
-        }
+        for system in componentSystems { system.add(foundIn: entity) }
     }
 
     func remove(_ entity: GKEntity) {
-        if let skNode = entity.component(ofType: RenderComponent.self)?.node {
-            skNode.removeFromParent()
-        }
-
         entities.remove(entity)
-
         toRemove.insert(entity)
     }
 
-    func update(_ deltaTime: CFTimeInterval) {
-        for componentSystem in componentSystems {
-            componentSystem.update(deltaTime: deltaTime)
-        }
+    func untrack(_ entity: GKEntity) { entities.remove(entity) }
 
-        for currentRemove in toRemove {
-            for componentSystem in componentSystems {
-                componentSystem.removeComponent(foundIn: currentRemove)
-            }
-        }
-
-        toRemove.removeAll()
+    func entities<T: GKComponent>(with componentType: T.Type) -> [GKEntity] {
+        entities.filter { $0.component(ofType: T.self) != nil }
     }
 
-    // TODO: Add helper methods such as generate blocks here?
+    func entity(forNode node: SKNode) -> GKEntity? {
+        entities.first { $0.component(ofType: RenderComponent.self)?.node === node }
+    }
+
+    func update(_ deltaTime: TimeInterval) {
+        for system in componentSystems { system.update(deltaTime: deltaTime) }
+        for entity in toRemove {
+            entity.component(ofType: RenderComponent.self)?.node.removeFromParent()
+            for system in componentSystems { system.remove(foundIn: entity) }
+        }
+        toRemove.removeAll()
+    }
 }

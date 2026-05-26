@@ -1,229 +1,261 @@
 //
 //  GameScene.swift
-//  Game101
+//  PaoApp
 //
 //  Created by Saujana Shafi on 27/04/26.
 //
-
-import GameplayKit
 import SpriteKit
-import SwiftUI
+import UIKit
+import GameplayKit
 
+// MARK: - GameScene
+// Orchestrates ECS entities, systems, and game state machine.
+// Handles physics contacts and gesture input; delegates logic to dedicated systems.
 final class GameScene: SKScene {
-    var entityManager: EntityManager!
-
-    private var score: Int = 0
-
-    private var isGameOver: Bool = false
-
-    // Physics Contact
-    var contactQueue = [SKPhysicsContact]()
-
-    private var shooterNode: SKShapeNode!
-    private var blockNode: SKShapeNode!
-
-    override init(size: CGSize) {
-        super.init(size: size)
+    
+    // MARK: - Layout (computed dynamically from screen size)
+    var cell:       CGFloat = 44
+    let gap: CGFloat = 0
+    var step: CGFloat { cell }
+    var gridOrigin: CGPoint = .zero
+    var gridW:      CGFloat = 0
+    var gridH:      CGFloat = 0
+    var shootY:     CGFloat = 0
+    var shootX:     CGFloat = 0
+    var gridScale: CGFloat = 0.9
+    var visualBlockSize: CGFloat {
+        cell * 0.78
     }
-
-    required init?(coder decoder: NSCoder) {
-        super.init(coder: decoder)
+    var playableGridWidth: CGFloat {
+        cell * CGFloat(GameConstants.cols)
+    }
+    
+    var playableGridHeight: CGFloat {
+        cell * CGFloat(GameConstants.blockRows)
+    }
+    var playAreaRect: CGRect {
+        CGRect(
+            x: gridOrigin.x,
+            y: gridOrigin.y,
+            width: gridW,
+            height: gridH
+        )
+    }
+    var playAreaInset: CGFloat {
+        cell * 0.25
+    }
+    
+    // MARK: - Game State
+    var ballCount     = GameConstants.initialBallCount
+    var turnNumber    = 0
+    
+    var onGameOver: (() -> Void)?
+    var onPause: (() -> Void)?
+    
+    // Update time
+    var lastUpdateTimeInterval: TimeInterval = 0
+    
+    var score: Int = 0
+    // Volley tracking
+    var volleyTotal:  Int      = 0
+    var volleyLanded: Int      = 0
+    //    var firstLandX:   CGFloat? = nil
+    var landedPositions: [CGFloat] = []
+    var shotAngle:    CGFloat  = .pi / 2
+    var lastDT:       TimeInterval = 0
+    
+    
+    // MARK: - ECS
+    var entityManager:   EntityManager!
+    var movementSystem:  MovementSystem!
+    var collisionSystem: CollisionSystem!
+    var healthSystem:    HealthSystem!
+    var controllerSystem: ControllerSystem!
+    
+    // MARK: - State Machine
+    var stateMachine: GKStateMachine!
+    
+    // MARK: - Player entity (shooter marker)
+    var playerEntity: PlayerEntity?
+    
+    // MARK: - HUD Nodes
+    var scoreLabel:   SKLabelNode!
+    var countLabel:   SKLabelNode!
+    var ammoCountLabel: SKLabelNode!
+    var ammoContainer = SKNode()
+    var turnLabel:    SKLabelNode!
+    var nextMarker:  SKShapeNode?
+    var aimDots: [SKShapeNode] = []
+    var aimArrow: SKShapeNode?
+    var landedBallNodes: [SKNode] = []
+    var isVolleyActive = false
+    
+    // MARK: - AssetNode
+    var bakpaoNode:  SKSpriteNode?
+    var pandaNode: SKSpriteNode?
+    var bgCheckeredNode:  SKSpriteNode?
+    var backgroundNode: SKSpriteNode?
+    var greenBlockNode: SKSpriteNode?
+    var yellowBlockNode: SKSpriteNode?
+    var pinkBlockNode: SKSpriteNode?
+    var collectBakpaoNode: SKSpriteNode?
+    var bgBrownNode: SKSpriteNode?
+    var gameFrameNode: SKSpriteNode?
+    var pandaFrames: [SKTexture] = []
+    var bakpaoCountFrameNode: SKSpriteNode?
+    var pauseFrameNode: SKSpriteNode?
+    var pauseButtonNode: SKSpriteNode?
+    
+    
+    // MARK: - Entry Point
+    override func willMove(from view: SKView) {
+        view.gestureRecognizers?.forEach { view.removeGestureRecognizer($0) }
     }
 
     override func didMove(to view: SKView) {
-        entityManager = EntityManager(scene: self)
-
-        configure()
-
-        configureWalls()
-
-        configureBlock()
-    }
-
-    func configure() {
-        self.backgroundColor = .black
+        scaleMode = .resizeFill
+        //Ambience Background in Game
+        SoundManager.shared.playBGM(track: .relaxAmbience, volume: 1.0)
+        entityManager    = EntityManager(scene: self)
+        movementSystem   = MovementSystem()
+        collisionSystem  = CollisionSystem()
+        healthSystem     = HealthSystem()
+        controllerSystem = ControllerSystem()
+        
+        // State machine: Aiming → Flying → TurnEnd → Aiming
+        stateMachine = GKStateMachine(states: [
+            GameStartState(entityManager),
+            GameIdleState(entityManager),
+            GameAimState(entityManager),
+            GameFlyingState(entityManager),
+            GameTurnEndState(entityManager),
+            GameOverState(entityManager),
+        ])
+        stateMachine.enter(GameAimState.self)
+        
+        physicsWorld.gravity         = .zero
         physicsWorld.contactDelegate = self
-        physicsWorld.gravity = .zero
+        
+        ScoreManager.shared.reset()
+        computeLayout(in: view)
+        setupAssets()
+        
+        buildBackground()
+        loadOverlayFromSKS()
+        buildWalls()
+        buildHUD()
+        placeShooterMarker()
+        spawnInitialRows()
+        addPanGesture(to: view)
+        addTapGesture(to: view)
+        
+        
+//        for family in UIFont.familyNames.sorted() {
+//            
+//            print("FAMILY:", family)
+//            
+//            for name in UIFont.fontNames(forFamilyName: family) {
+//                
+//                print(" FONT:", name)
+//            }
+//        }
     }
+    
+    // MARK: - Spawning
 
-    func configurePlayer() {
-
+    func spawnInitialRows() {
+        for r in 0...2 { spawnRow(r) }
     }
-
-    private func configureWalls() {
-        self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
-
-        self.physicsBody?.friction = 0.0  // No resistance when sliding
-        self.physicsBody?.restitution = 1.0  // Perfectly "bouncy" (1.0 = 100% energy kept)
-        //        self.physicsBody?.categoryBitMask = kWallCategory
-        //        self.physicsBody?.collisionBitMask = kBallCategory
-        self.physicsBody?.usesPreciseCollisionDetection = true
-    }
-
-    private func configureBlock() {
-        let block = SKSpriteNode(
-            color: .systemBlue,
-            size: CGSize(width: 30, height: 30)
-        )
-        //        block.name = kBlockName
-
-        block.position = CGPoint(x: self.frame.midX, y: self.frame.midY)
-
-        // Setup Physics
-        block.physicsBody = SKPhysicsBody(rectangleOf: block.size)
-        block.physicsBody?.isDynamic = false  // Static so it doesn't fall or move when hit
-        //        block.physicsBody?.categoryBitMask = kBlockCategory
-        //        block.physicsBody?.contactTestBitMask = kBallCategory
-        block.physicsBody?.friction = 0.0
-        block.physicsBody?.restitution = 1.0
-
-        // Add the Label
-        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = "5"  // Set initial hit count
-        label.fontSize = 16
-        label.fontColor = .white
-        label.name = "hpLabel"
-
-        // Center the label inside the block
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-
-        block.addChild(label)
-        self.addChild(block)
-    }
-}
-
-// MARK: Touch Events
-extension GameScene {
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if isGameOver {
-            let gameScene = GameScene(size: self.size)
-            self.view?.presentScene(
-                gameScene,
-                transition: .fade(withDuration: 1.0)
-            )
-        }
-
-        if let point = touches.first?.location(in: self) {
-            orientShooter(to: point)
-        }
-    }
-
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let point = touches.first?.location(in: self) {
-            orientShooter(to: point)
-        }
-    }
-
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let point = touches.first?.location(in: self) {
-            fireBall(to: point)
-        }
-    }
-}
-
-//MARK: Collision
-extension GameScene: SKPhysicsContactDelegate {
-    func didBegin(_ contact: SKPhysicsContact) {
-        contactQueue.append(contact)
-    }
-
-    func handle(_ contact: SKPhysicsContact) {
-        if contact.bodyA.node?.parent == nil
-            || contact.bodyB.node?.parent == nil
-        {
-            return
-        }
-
-        let nodeNames = [contact.bodyA.node!.name!, contact.bodyB.node!.name!]
-
-        print("Something Hit")
-
-        // Block Hit
-        //        if nodeNames.contains(kBlockName) && nodeNames.contains(kBallName) {
-        //            print("Block Hit")
-        //
-        //            let blockNode =
-        //                contact.bodyA.node?.name == kBlockName
-        //                ? contact.bodyA.node : contact.bodyB.node
-        //            if let block = blockNode {
-        //                handleBlockHit(block)
-        //            }
-        //        }
-    }
-
-    func processContacts(forUpdate currentTime: CFTimeInterval) {
-        for contact in contactQueue {
-            handle(contact)
-            if let index = contactQueue.firstIndex(of: contact) {
-                contactQueue.remove(at: index)
+    
+    func spawnRow(_ row: Int) {
+        guard row < GameConstants.blockRows else { return }
+        
+        let shuffled  = Array(0..<GameConstants.cols).shuffled()
+        let nBlocks   = Int.random(in: 2...4)
+        let blockCols = Set(shuffled.prefix(nBlocks))
+        var emptyCols = shuffled.filter { !blockCols.contains($0) }.shuffled()
+        
+        // Ammo pickup: probability decreases with turns (min 20%)
+        let ammoChance = max(20, 45 - turnNumber * 2)
+        var ammoCol:   Int? = Int.random(in: 0...99) < ammoChance ? emptyCols.first : nil
+        if ammoCol   != nil { emptyCols.removeFirst() }
+        
+        for c in 0..<GameConstants.cols {
+            let pos = cellCenter(col: c, row: row)
+            if blockCols.contains(c) {
+                let type = RandomManager.shared.generateBlockType()
+                let hp   = RandomManager.shared.generateFairHP(currentAmmo: ballCount, type: type)
+                //                let type = RandomManager.shared.randomBlockType(turnNumber: turnNumber)
+                addBlockEntity(at: pos, type: type, hp: hp)
+            } else if c == ammoCol {
+                addPickupEntity(at: pos, type: .ammo)
             }
         }
     }
-}
-
-// MARK: Gyro
-extension GameScene {
-
-}
-
-// MARK: Shooter
-extension GameScene {
-    func orientShooter(to point: CGPoint) {
-        let ship = childNode(withName: "shooter")
-
-        let lookAtConstraint = SKConstraint.orient(
-            to: point,
-            offset: SKRange(constantValue: -CGFloat.pi / 2)
+    // MARK: - Game Loop
+    override func update(_ currentTime: TimeInterval) {
+        let dt: CGFloat = lastDT == 0
+        ? 1 / 60.0
+        : CGFloat(min(currentTime - lastDT, 1 / 30.0))
+        lastDT = currentTime
+        
+        // Rover movement always runs (even during aiming)
+        movementSystem.update(
+            deltaTime: dt,
+            entityManager: entityManager,
+            cell: cell,
+            gap: gap,
+            gridOriginX: gridOrigin.x,
+            gridWidth: gridW
         )
-        ship?.constraints = [lookAtConstraint]
-    }
+        
+        // Drain collision events queued by didBegin and call the right handler
+        for event in collisionSystem.dequeueAll() {
+            if event.isBlock {
+                handleBlockHit(node: event.otherNode)
+                ScoreManager.shared.addPoints(10)
+            } else {
+                handlePickupCollected(node: event.otherNode)
+            }
+        }
+        
+        guard stateMachine.currentState is GameFlyingState else { return }
+        
+        // Ball position updates
+        for entity in entityManager.entities(with: VelocityComponent.self) {
+            guard let velComp = entity.component(ofType: VelocityComponent.self),
+                  let render  = entity.component(ofType: RenderComponent.self),
+                  let body    = render.node.physicsBody,
+                  body.isDynamic else { continue }
+            let sprite = render.node
+            let v = body.velocity
 
-    func fireBall(to point: CGPoint) {
-        //        guard let shooter = childNode(withName: kShooterName) as? ShooterNode
-        //        else { return }
-
-        //        let from = shooter.position
-        //        let ball = getBallNode(position: from)
-        //        self.addChild(ball)
-
-        // 1. Calculate direction vector
-        //        let direction = (point - from).normalized()
-
-        // 2. Define a constant speed
-        let speed: CGFloat = 400.0
-
-        // 3. Apply velocity directly to the physics body
-        //        ball.physicsBody?.velocity = CGVector(
-        //            dx: direction.x * speed,
-        //            dy: direction.y * speed
-        //        )
-    }
-
-    func handleBlockHit(_ block: SKNode) {
-        // 1. Find the label child
-        guard let label = block.childNode(withName: "hpLabel") as? SKLabelNode,
-            let currentText = label.text,
-            var hp = Int(currentText)
-        else { return }
-
-        // 2. Decrease HP
-        hp -= 1
-
-        if hp <= 0 {
-            // 3. Destroy the block
-            block.removeFromParent()
-            // Optional: Add an explosion effect here
-        } else {
-            // 4. Update the label and maybe change block appearance
-            label.text = "\(hp)"
-
-            // Visual feedback: make the block pulse when hit
-            let pulse = SKAction.sequence([
-                SKAction.scale(to: 1.1, duration: 0.05),
-                SKAction.scale(to: 1.0, duration: 0.05),
-            ])
-            block.run(pulse)
+            // Land when ball returns to shooter row with non-upward velocity.
+            // No hasRisen check needed: balls are always fired upward (angle clamped
+            // to ≥8°), so dy > 0 at shootY on departure — this only fires on return.
+            if sprite.position.y <= shootY && v.dy <= 0 {
+                ballLanded(entity: entity, ball: sprite)
+                continue
+            }
+            
+            // Gravity only fires when the ball is moving downward or within ~3° of
+            // horizontal. Upward-moving balls (vy > threshold) travel in a straight
+            // line so low-angle shots feel natural. Stuck horizontal balls accumulate
+            // the downward nudge over a few seconds and land on their own.
+            let vx  = v.dx
+            let rawVY = v.dy
+            let vy  = rawVY < GameConstants.ballSpeed * 0.05
+            ? rawVY - GameConstants.gravityAccel * dt
+            : rawVY
+            let spd = hypot(vx, vy)
+            if spd > 1 {
+                body.velocity = CGVector(
+                    dx: vx / spd * GameConstants.ballSpeed,
+                    dy: vy / spd * GameConstants.ballSpeed
+                )
+                sprite.position.x = min(max(sprite.position.x, gridOrigin.x), gridOrigin.x + gridW)
+                sprite.position.y = min(max(sprite.position.y, gridOrigin.y), gridOrigin.y + gridH)
+            }
         }
     }
 }

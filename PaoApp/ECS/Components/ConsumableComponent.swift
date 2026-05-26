@@ -8,6 +8,21 @@
 import Foundation
 import GameplayKit
 
-class ConsumableComponent: GKComponent {
+// Pickup types available on the board as consumables
+enum PickupType {
+    case ammo          // adds +1 to ball count
+}
 
+// Marks an entity as a one-time consumable pickup
+class ConsumableComponent: GKComponent {
+    let pickupType: PickupType
+
+    init(_ type: PickupType) {
+        self.pickupType = type
+        super.init()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }

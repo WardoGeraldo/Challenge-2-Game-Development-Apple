@@ -1,0 +1,384 @@
+//
+//  GameScenePart5.swift
+//  PaoApp
+//
+//  Created by Axel Valent Prayogo on 19/05/26.
+//
+
+import Foundation
+import UIKit
+import GameplayKit
+import SpriteKit
+
+extension GameScene: SKPhysicsContactDelegate {
+    // MARK: - Volley Fire
+    func startVolley(angle: CGFloat) {
+        isVolleyActive = true
+        //SFX PANDA SHOOTS
+        SoundManager.shared.playSFX(.pandaShoot, on: self)
+        refreshHUD()
+        shotAngle    = angle
+        volleyTotal  = ballCount
+        volleyLanded = 0
+        //        firstLandX   = nil
+        landedPositions.removeAll()
+        landedBallNodes.removeAll()
+        
+        stateMachine.enter(GameFlyingState.self)
+        
+        // START PANDA ANIMATION
+               startPandaAnimation()
+        
+        // Fire all balls with staggered delay
+        for i in 0..<volleyTotal {
+            run(.sequence([
+                .wait(forDuration: TimeInterval(i) * GameConstants.shootGap),
+                .run { [weak self] in self?.fireOneBall() }
+            ]))
+        }
+        
+        let totalShootDuration =
+                   TimeInterval(volleyTotal) * GameConstants.shootGap
+               
+               // STOP PANDA ANIMATION
+               
+               run(.sequence([
+                   .wait(forDuration: totalShootDuration),
+                   .run { [weak self] in
+                       self?.stopPandaAnimation()
+                   }
+               ]))
+        
+    }
+    
+    func fireOneBall() {
+        guard let texture = bakpaoNode?.texture else { return }
+
+        let node = BallNode(texture: texture, radius: GameConstants.ballRadius)
+        node.position = CGPoint(x: shootX, y: shootY)
+        let entity = BallEntity(node: node)
+        entityManager.add(entity)
+
+        node.physicsBody?.velocity = CGVector(
+            dx: cos(shotAngle) * GameConstants.ballSpeed,
+            dy: sin(shotAngle) * GameConstants.ballSpeed
+        )
+    }
+    
+    // MARK: - Ball Landing
+    func ballLanded(entity: GKEntity, ball: SKNode) {
+        
+        // Clamp posisi landing
+        let lo = gridOrigin.x + GameConstants.ballRadius + gap
+        let hi = gridOrigin.x + gridW - GameConstants.ballRadius - gap
+        
+        let clampedX = Swift.min(
+            Swift.max(ball.position.x, lo),
+            hi
+        )
+        
+        landedPositions.append(clampedX)
+        
+        // Stop physics
+        ball.physicsBody?.velocity = .zero
+        ball.physicsBody = nil
+        
+        entityManager.untrack(entity)
+        
+        // Snap ke floor
+        ball.position = CGPoint(
+            x: clampedX,
+            y: shootY - cell * 0.5
+        )
+        
+        // Simpan node
+        landedBallNodes.append(ball)
+        
+        // Idle floating kecil
+        let float = SKAction.sequence([
+            .moveBy(x: 0, y: 2, duration: 0.45),
+            .moveBy(x: 0, y: -2, duration: 0.45)
+        ])
+        
+        ball.run(
+            .repeatForever(float),
+            withKey: "idleFloat"
+        )
+        
+        volleyLanded += 1
+
+        if volleyLanded >= volleyTotal {
+            endVolley()
+        }
+    }
+    
+    func calculateBestLandingX() -> CGFloat {
+        
+        guard !landedPositions.isEmpty else {
+            return frame.midX
+        }
+        
+        let bucketSize: CGFloat = 40
+        
+        var buckets: [Int: [CGFloat]] = [:]
+        
+        for x in landedPositions {
+            
+            let key = Int(x / bucketSize)
+            
+            buckets[key, default: []].append(x)
+        }
+        
+        // Bucket terbanyak
+        let best = buckets.max {
+            $0.value.count < $1.value.count
+        }
+        
+        guard let values = best?.value else {
+            return frame.midX
+        }
+        
+        // Average position
+        let avg = values.reduce(0, +) / CGFloat(values.count)
+        
+        // Clamp screen
+        let lo = gridOrigin.x + 30
+        let hi = gridOrigin.x + gridW - 30
+        
+        return min(max(avg, lo), hi)
+    }
+    
+    func repositionLandedBallsAroundPlayer() {
+
+        guard !landedBallNodes.isEmpty else { return }
+
+        let size: CGFloat = GameConstants.ballRadius * 1.75
+
+        // Dynamic spacing
+        let spacing: CGFloat
+
+        if landedBallNodes.count <= 5 {
+            spacing = size * 0.72
+        } else if landedBallNodes.count <= 12 {
+            spacing = size * 0.48
+        } else {
+            spacing = size * 0.28
+        }
+
+        // Width total semua bakpao
+        let totalWidth =
+            CGFloat(max(landedBallNodes.count - 1, 0)) * spacing + size
+
+        // Batas maksimal dalam grid
+        let maxWidth = gridW - cell * 1.2
+
+        let clampedWidth = min(totalWidth, maxWidth)
+
+        let finalSpacing: CGFloat
+
+        if landedBallNodes.count > 1 {
+            finalSpacing = min(
+                spacing,
+                (clampedWidth - size)
+                / CGFloat(landedBallNodes.count - 1)
+            )
+        } else {
+            finalSpacing = spacing
+        }
+
+        // ===== Clamp Position =====
+
+        let leftLimit = gridOrigin.x + size / 2
+        let rightLimit = gridOrigin.x + gridW - size / 2
+
+        var startX =
+            shootX - clampedWidth / 2 + size / 2
+
+        let finalRight =
+            startX
+            + CGFloat(landedBallNodes.count - 1) * finalSpacing
+
+        // Geser ke kiri kalau keluar kanan
+        if finalRight > rightLimit {
+            startX -= (finalRight - rightLimit)
+        }
+
+        // Geser ke kanan kalau keluar kiri
+        if startX < leftLimit {
+            startX = leftLimit
+        }
+
+        // ===== Animate =====
+
+        for (index, ball) in landedBallNodes.enumerated() {
+
+            ball.removeAction(forKey: "idleFloat")
+
+            let target = CGPoint(
+                x: startX + CGFloat(index) * finalSpacing,
+                y: shootY - cell * 0.5
+            )
+
+            let move = SKAction.move(
+                to: target,
+                duration: 0.32
+            )
+
+            move.timingMode = .easeInEaseOut
+
+            let rotate = SKAction.rotate(
+                toAngle: CGFloat.random(in: -0.15...0.15),
+                duration: 0.2
+            )
+
+            let pop = SKAction.sequence([
+                .scale(to: 1.08, duration: 0.06),
+                .scale(to: 1.0, duration: 0.08)
+            ])
+
+            ball.run(.group([
+                move,
+                rotate,
+                pop
+            ]))
+        }
+    }
+    
+    // MARK: - End Volley
+    func endVolley() {
+        
+        // Cari posisi landing paling ramai
+        shootX = calculateBestLandingX()
+        updateAmmoContainerPosition()
+        
+        stateMachine.enter(GameTurnEndState.self)
+                
+        nextMarker?.removeFromParent()
+        nextMarker = nil
+        
+        // Kumpulkan bakpao ke player baru
+        repositionLandedBallsAroundPlayer()
+        
+        // Delay supaya animasi kumpul selesai
+        run(.sequence([
+            
+            .wait(forDuration: 0.4),
+            
+                .run { [weak self] in
+                    
+                    guard let self else { return }
+                    
+                    for ball in self.landedBallNodes {
+                        
+                        ball.run(.sequence([
+                            
+                            .group([
+                                .fadeOut(withDuration: 0.12),
+                                .scale(to: 0.7, duration: 0.12)
+                            ]),
+                            
+                                .removeFromParent()
+                        ]))
+                    }
+                    
+                    self.landedBallNodes.removeAll()
+                }
+        ]))
+        
+        turnNumber += 1
+        
+        // Delay sedikit supaya visual lebih smooth
+        run(.sequence([
+            
+            .wait(forDuration: 0.12),
+            
+                .run { [weak self] in
+                    
+                    guard let self else { return }
+                    
+                    self.isVolleyActive = false
+                    self.refreshHUD()
+                    self.placeShooterMarker()
+                    self.advanceBoard()
+                }
+        ]))
+        
+        // Back to aiming
+        run(.sequence([
+            
+            .wait(forDuration: 0.62),
+            
+                .run { [weak self] in
+                    self?.stateMachine.enter(GameAimState.self)
+                }
+        ]))
+    }
+    
+    func startPandaAnimation() {
+            pandaNode?.removeAction(forKey: "pandaIdle")
+
+            guard let panda = pandaNode else { return }
+
+            // cegah animasi dobel
+            if panda.action(forKey: "walking") != nil {
+                return
+            }
+
+            let animate = SKAction.animate(
+                with: pandaFrames,
+                timePerFrame: 0.12
+            )
+
+            let loop = SKAction.repeatForever(animate)
+
+            panda.run(
+                loop,
+                withKey: "walking"
+            )
+        }
+        
+        func stopPandaAnimation() {
+
+            guard let panda = pandaNode else { return }
+
+            panda.removeAction(forKey: "walking")
+
+            // balik idle
+            panda.texture = pandaFrames[0]
+            startIdlePandaAnimation()
+        }
+        
+        func startIdlePandaAnimation() {
+
+            pandaNode?.removeAction(forKey: "pandaIdle")
+
+            let moveRight = SKAction.moveBy(
+                x: 0,
+                y: 2,
+                duration: 0.8
+            )
+
+            moveRight.timingMode = .easeInEaseOut
+
+            let moveLeft = SKAction.moveBy(
+                x: 0,
+                y: -2,
+                duration: 0.8
+            )
+
+            moveLeft.timingMode = .easeInEaseOut
+
+            let idleLoop = SKAction.repeatForever(
+                .sequence([
+                    moveRight,
+                    moveLeft
+                ])
+            )
+
+            pandaNode?.run(
+                idleLoop,
+                withKey: "pandaIdle"
+            )
+        }
+    
+}

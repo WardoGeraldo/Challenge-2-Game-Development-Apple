@@ -11,6 +11,9 @@ import GameplayKit
 class PhysicsComponent: GKComponent {
     var physicsBody: SKPhysicsBody
 
+    // Physics Contact
+    var contactQueue = [SKPhysicsContact]()
+
     //  Accessing the parent's spritenode if any
     var spriteNode: SKNode? {
         return entity?.component(ofType: RenderComponent.self)?.node
@@ -41,5 +44,4 @@ class PhysicsComponent: GKComponent {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
 }
