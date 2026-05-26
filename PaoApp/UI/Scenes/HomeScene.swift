@@ -68,6 +68,8 @@ class HomeScene: SKScene {
         if let button = childNode(withName: "HomeScreenPlayButton"),
            button.contains(location) {
             isButtonPressed = true
+            //SFX PLAY
+            SoundManager.shared.playSFX(.playAndPause, on: self)
             button.removeAction(forKey: "pulse")
             button.run(.scale(to: buttonOriginalScale * 0.88, duration: 0.1), withKey: "press")
         }

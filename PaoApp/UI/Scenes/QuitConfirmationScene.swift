@@ -32,9 +32,13 @@ class QuitConfirmationScene: SKScene {
             if node.name == "yesButtonNode" {
                 node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
                 isYesPressed = true
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             } else if node.name == "noButtonNode" {
                 node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
                 isNoPressed = true
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             }
         }
     }

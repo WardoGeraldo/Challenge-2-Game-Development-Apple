@@ -231,9 +231,10 @@ final class GameOverModalScene: SKScene {
     // MARK: - Animations
 
     private func animateModalIn() {
-
+        //SFX GAMEOVER
+        SoundManager.shared.playSFX(.gameOver, on: self)
+        
         guard let modal = oopsModalNode else { return }
-
         let originalXScale = modal.xScale
         let originalYScale = modal.yScale
 
@@ -319,7 +320,8 @@ final class GameOverModalScene: SKScene {
             || touchedNode.parent?.name == "xButtonNode" {
 
             if let xButtonNode {
-
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
                 animateButtonPress(xButtonNode)
             }
 
@@ -333,6 +335,8 @@ final class GameOverModalScene: SKScene {
             || touchedNode.parent?.name == "playAgainButtonNode" {
 
             if let playAgainButtonNode {
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
                 animateButtonPress(playAgainButtonNode)
             }
 

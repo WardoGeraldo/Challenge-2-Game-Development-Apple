@@ -26,6 +26,8 @@ struct PauseViewModal: View {
     private func makeScene(size: CGSize) -> PauseSettingScene {
         // Loads the .sks file 
         let scene = PauseSettingScene(fileNamed: "PauseSettingScene") ?? PauseSettingScene(size: size)
+        //SFX BUTTON
+        SoundManager.shared.playSFX(.playAndPause, on: scene)
         
         scene.scaleMode = .aspectFill
         scene.currentScore = currentScore

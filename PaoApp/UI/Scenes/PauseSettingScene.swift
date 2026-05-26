@@ -58,9 +58,13 @@ class PauseSettingScene: SKScene {
                 // Add a little visual shrink effect when tapped
                 node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
                 isResumePressed = true
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             } else if node.name == "quitButtonNode" {
                 node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
                 isQuitPressed = true
+                //SFX BUTTON
+                SoundManager.shared.playSFX(.playAndPause, on: self)
             }
         }
     }

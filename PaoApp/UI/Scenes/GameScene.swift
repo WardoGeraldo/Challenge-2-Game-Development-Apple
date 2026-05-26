@@ -113,6 +113,7 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         scaleMode = .resizeFill
+        //Ambience Background in Game
         SoundManager.shared.playBGM(track: .relaxAmbience, volume: 1.0)
         entityManager    = EntityManager(scene: self)
         movementSystem   = MovementSystem()
