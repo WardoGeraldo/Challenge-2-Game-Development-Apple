@@ -9,89 +9,108 @@ import SpriteKit
 
 class PauseSettingScene: SKScene {
 
-    // 1. The Closures (Bridging back to SwiftUI)
     var onResume: (() -> Void)?
     var onQuit: (() -> Void)?
 
-    // 2. Button State Tracking (Optional, for visual Polish)
-    private var isResumePressed = false
-    private var isQuitPressed = false
-    private var buttonOriginalScale: CGFloat = 1.0
-    
+    private var pressedResumeNode: SKNode?
+    private var pressedQuitNode: SKNode?
+    private var resumeOriginalXScale: CGFloat = 1.0
+    private var resumeOriginalYScale: CGFloat = 1.0
+    private var quitOriginalXScale: CGFloat = 1.0
+    private var quitOriginalYScale: CGFloat = 1.0
+
     var currentScore: Int = 0
     var highScore: Int = 0
 
     override func didMove(to view: SKView) {
-        // You can add wobble or pulse animations here just like your HomeScene!
-        // For example, finding the resume button to store its original scale:
-        if let resumeBtn = childNode(withName: "//resumeButtonNode") {
-            buttonOriginalScale = resumeBtn.xScale
-        }
-        let scoreLbl = SKLabelNode(fontNamed: "Melon-Pop")
-          scoreLbl.text = "High Score:"
-          scoreLbl.fontSize = 32
-          scoreLbl.fontColor = UIColor(red: 92/255, green: 53/255, blue: 22/255, alpha: 1)
-          scoreLbl.position = CGPoint(x: frame.midX, y: frame.midY + 100)  // tune y to fit your modal
-          scoreLbl.zPosition = 10
-          addChild(scoreLbl)
+        let scoreBackground = makeRoundedBackground(size: CGSize(width: 250, height: 60))
+        scoreBackground.position = CGPoint(x: frame.midX, y: frame.midY + 25)
+        addChild(scoreBackground)
 
-          let highLbl = SKLabelNode(fontNamed: "Melon-Pop")
-          highLbl.text = "\(highScore)"
-          highLbl.fontSize = 26
-          highLbl.fontColor = UIColor(red: 233/255, green: 92/255, blue: 107/255, alpha: 1)
-          highLbl.position = CGPoint(x: frame.midX, y: frame.midY + 40)  // tune y to fit your modal
-          highLbl.zPosition = 10
-          addChild(highLbl)
+        let scoreLbl = SKLabelNode(fontNamed: "Melon-Pop")
+        scoreLbl.text = "High Score:"
+        scoreLbl.fontSize = 32
+        scoreLbl.fontColor = UIColor(red: 92/255, green: 53/255, blue: 22/255, alpha: 1)
+        scoreLbl.position = CGPoint(x: frame.midX, y: frame.midY + 70)
+        scoreLbl.zPosition = 10
+        addChild(scoreLbl)
+
+        let highLbl = SKLabelNode(fontNamed: "Melon-Pop")
+        highLbl.text = "\(highScore)"
+        highLbl.fontSize = 32
+        highLbl.fontColor = UIColor(red: 233/255, green: 92/255, blue: 107/255, alpha: 1)
+        highLbl.position = CGPoint(x: frame.midX, y: frame.midY + 10)
+        highLbl.zPosition = 10
+        addChild(highLbl)
     }
 
-    // 3. Catching the Touches
+    private func makeRoundedBackground(size: CGSize) -> SKShapeNode {
+        let rect = SKShapeNode(rectOf: size, cornerRadius: 20)
+        rect.fillColor = UIColor(red: 246/255, green: 231/255, blue: 197/255, alpha: 1)
+        rect.strokeColor = .clear
+        rect.zPosition = 9
+        return rect
+    }
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
-        
-        // Find ALL nodes at the tapped location
-        let touchedNodes = nodes(at: location)
-        
-        for node in touchedNodes {
-            // Check the names matching your .sks file
-            if node.name == "resumeButtonNode" {
-                // Add a little visual shrink effect when tapped
-                node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
-                isResumePressed = true
-                //SFX BUTTON
-                SoundManager.shared.playSFX(.playAndPause, on: self)
-            } else if node.name == "quitButtonNode" {
-                node.run(SKAction.scale(to: buttonOriginalScale * 0.9, duration: 0.1))
-                isQuitPressed = true
-                //SFX BUTTON
-                SoundManager.shared.playSFX(.playAndPause, on: self)
-            }
+        let tappedNodes = nodes(at: location)
+
+        if let node = tappedNodes.first(where: { $0.name == "resumeButtonNode" }), pressedResumeNode == nil {
+            pressedResumeNode = node
+            resumeOriginalXScale = node.xScale
+            resumeOriginalYScale = node.yScale
+            node.run(SKAction.scaleX(to: resumeOriginalXScale * 0.9, y: resumeOriginalYScale * 0.9, duration: 0.1))
+            SoundManager.shared.playSFX(.playAndPause, on: self)
+        } else if let node = tappedNodes.first(where: { $0.name == "quitButtonNode" }), pressedQuitNode == nil {
+            pressedQuitNode = node
+            quitOriginalXScale = node.xScale
+            quitOriginalYScale = node.yScale
+            node.run(SKAction.scaleX(to: quitOriginalXScale * 0.9, y: quitOriginalYScale * 0.9, duration: 0.1))
+            SoundManager.shared.playSFX(.playAndPause, on: self)
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let hit = Set(nodes(at: location).compactMap { $0.name })
+
+        if pressedResumeNode != nil, !hit.contains("resumeButtonNode") {
+            pressedResumeNode?.run(SKAction.scaleX(to: resumeOriginalXScale, y: resumeOriginalYScale, duration: 0.1))
+            pressedResumeNode = nil
+        }
+
+        if pressedQuitNode != nil, !hit.contains("quitButtonNode") {
+            pressedQuitNode?.run(SKAction.scaleX(to: quitOriginalXScale, y: quitOriginalYScale, duration: 0.1))
+            pressedQuitNode = nil
         }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // Find the buttons to reset their scale
-        let resumeBtn = childNode(withName: "//resumeButtonNode")
-        let quitBtn = childNode(withName: "//quitButtonNode")
-        
-        // Reset visual scale
-        resumeBtn?.run(SKAction.scale(to: buttonOriginalScale, duration: 0.1))
-        quitBtn?.run(SKAction.scale(to: buttonOriginalScale, duration: 0.1))
-        
-        // Trigger the actual SwiftUI closures if they were pressed
-        if isResumePressed {
+        if let node = pressedResumeNode {
+            node.run(SKAction.scaleX(to: resumeOriginalXScale, y: resumeOriginalYScale, duration: 0.1))
+            pressedResumeNode = nil
             onResume?()
-            isResumePressed = false
         }
-        
-        if isQuitPressed {
+
+        if let node = pressedQuitNode {
+            node.run(SKAction.scaleX(to: quitOriginalXScale, y: quitOriginalYScale, duration: 0.1))
+            pressedQuitNode = nil
             onQuit?()
-            isQuitPressed = false
         }
     }
-    
+
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // If the user drags their finger off the button, cancel the press
-        touchesEnded(touches, with: event)
+        if let node = pressedResumeNode {
+            node.run(SKAction.scaleX(to: resumeOriginalXScale, y: resumeOriginalYScale, duration: 0.1))
+            pressedResumeNode = nil
+        }
+
+        if let node = pressedQuitNode {
+            node.run(SKAction.scaleX(to: quitOriginalXScale, y: quitOriginalYScale, duration: 0.1))
+            pressedQuitNode = nil
+        }
     }
 }

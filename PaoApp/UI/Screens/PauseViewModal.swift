@@ -46,6 +46,6 @@ struct PauseViewModal: View {
 
 #Preview {
     ZStack {
-        PauseViewModal(onResume: {}, onQuit: {}, currentScore: 0, highScore: 0)
+        PauseViewModal(onResume: {}, onQuit: {}, currentScore: 0, highScore:1)
     }
 }

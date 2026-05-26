@@ -99,7 +99,11 @@ class HomeScene: SKScene {
 
         if isButtonPressed && button.contains(location) {
             isButtonPressed = false
-            button.run(.scale(to: buttonOriginalScale, duration: 0.1), withKey: "press")
+            let restore = SKAction.sequence([
+                .scale(to: buttonOriginalScale, duration: 0.1),
+                .run { self.startButtonPulse() }
+            ])
+            button.run(restore, withKey: "press")
             onPlayTapped?()
         } else {
             isButtonPressed = false
