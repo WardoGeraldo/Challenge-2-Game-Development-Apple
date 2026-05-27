@@ -51,6 +51,7 @@ final class GameScene: SKScene {
     
     var onGameOver: (() -> Void)?
     var onPause: (() -> Void)?
+    var isGameOver = false
     
     // Update time
     var lastUpdateTimeInterval: TimeInterval = 0

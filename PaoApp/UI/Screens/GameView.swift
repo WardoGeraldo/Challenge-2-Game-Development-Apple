@@ -19,6 +19,7 @@ struct GameView: View {
     @State private var sceneSize: CGSize = .zero
     @State private var gameScene: GameScene?
     @State private var sessionID = 0
+    @State private var sessionHighScore = 0
 
     var body: some View {
         ZStack {
@@ -51,7 +52,7 @@ struct GameView: View {
                 },
                 onQuit: { showQuitConfirm = true },
                 currentScore: ScoreManager.shared.currentScore,
-                highScore: ScoreManager.shared.highScore
+                highScore: sessionHighScore
             )
             .opacity(showPause ? 1 : 0)
             .allowsHitTesting(showPause)
@@ -110,6 +111,7 @@ struct GameView: View {
 
     private func startNewGame(size: CGSize) {
         ScoreManager.shared.reset()
+        sessionHighScore = ScoreManager.shared.highScore
         sceneSize = size
         sessionID += 1
         let scene = GameScene(size: size)
