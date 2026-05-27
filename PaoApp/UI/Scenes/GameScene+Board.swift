@@ -115,7 +115,7 @@ extension GameScene {
                 ]))
                 // Pickups falling off don't end the game — only blocks do
                 if entity.component(ofType: BlockTypeComponent.self) != nil {
-                    stateMachine.enter(GameOverState.self)
+                    guard !(stateMachine.currentState is GameOverState) else { continue }
                     run(.sequence([
                         .wait(forDuration: 0.5),
                         .run { [weak self] in self?.onGameOver?() }
